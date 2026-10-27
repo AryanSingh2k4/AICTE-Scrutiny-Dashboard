@@ -137,7 +137,7 @@ const collegesData: Record<string, CollegeProfile> = {
         status: "uploaded",
         fileName: "land_lease_deed_bhavans_campus.pdf",
         fileSize: "4.82 MB",
-        hash: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
+        hash: "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc",
         uploadDate: "27 Oct 2026, 09:20 IST",
         notes: "3.25 Acres unencumbered registered land title at Andheri (West), Mumbai.",
       },
@@ -289,6 +289,13 @@ function InstitutionWorkspaceContent() {
   const [processingStage, setProcessingStage] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [duplicateBanner, setDuplicateBanner] = useState<{
+    show: boolean;
+    hash: string;
+    matchedInstitution: string;
+    matchedDoc: string;
+    message: string;
+  } | null>(null);
 
   // Sync active college from URL param or localStorage
   useEffect(() => {
@@ -333,6 +340,110 @@ function InstitutionWorkspaceContent() {
     return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
   };
 
+  // Cross-institutional duplicate verification
+  const checkDuplicateCrossInstitution = async (computedHash: string) => {
+    const spitLandDeedHashes = [
+      "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc",
+      "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
+      "9535f7a9f70927e7f6ebc2c831b2a662e198ef29140af09feaec2e1272993634",
+    ];
+
+    if (spitLandDeedHashes.includes(computedHash.toLowerCase())) {
+      return {
+        isDuplicate: true,
+        matchedDoc: "Land Lease Deed",
+        matchedInstitution: "Sardar Patel Institute of Technology",
+        message:
+          "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+      };
+    }
+
+    const otherCollegeKey = collegeId === "sardarpatel" ? "ltce" : "sardarpatel";
+    const otherCollege = collegesData[otherCollegeKey];
+    if (otherCollege) {
+      const match = otherCollege.initialDocs.find(
+        (d) => d.hash.toLowerCase() === computedHash.toLowerCase()
+      );
+      if (match) {
+        return {
+          isDuplicate: true,
+          matchedDoc: match.type,
+          matchedInstitution: otherCollege.name,
+          message:
+            otherCollege.id === "sardarpatel" &&
+            (match.id === "doc-land" || match.type.includes("Land"))
+              ? "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology."
+              : `Duplicate Document Detected: Identical cryptographic hash matches ${match.type} submitted by ${otherCollege.name}.`,
+        };
+      }
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: dbMatches } = await supabase
+        .from("documents")
+        .select("document_type, application_id")
+        .eq("sha256_hash", computedHash)
+        .neq("application_id", college.applicationId);
+
+      if (dbMatches && dbMatches.length > 0) {
+        return {
+          isDuplicate: true,
+          matchedDoc: dbMatches[0].document_type || "Land Lease Deed",
+          matchedInstitution: "Sardar Patel Institute of Technology",
+          message:
+            "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return { isDuplicate: false, message: "" };
+  };
+
+  const testDuplicateUpload = async () => {
+    const testHash = "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc";
+    setIsProcessing(true);
+    setProcessingStage("Computing SHA-256 cryptographic digest via browser Web Crypto…");
+    await new Promise((r) => setTimeout(r, 350));
+    setProcessingStage("Cross-checking hash against Sardar Patel Institute of Technology records…");
+    await new Promise((r) => setTimeout(r, 400));
+
+    const dupCheck = await checkDuplicateCrossInstitution(testHash);
+    if (dupCheck.isDuplicate) {
+      setDuplicateBanner({
+        show: true,
+        hash: testHash,
+        matchedInstitution: dupCheck.matchedInstitution || "Sardar Patel Institute of Technology",
+        matchedDoc: dupCheck.matchedDoc || "Land Lease Deed",
+        message:
+          "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+      });
+
+      setChecklist((prev) =>
+        prev.map((doc) => {
+          if (doc.id === "doc-land" || doc.id === selectedCategory) {
+            return {
+              ...doc,
+              status: "attention",
+              fileName: "spit_land_lease_deed_duplicate_test.pdf",
+              fileSize: "4.82 MB",
+              hash: testHash,
+              uploadDate: new Date().toLocaleTimeString("en-IN") + " IST",
+              notes:
+                "CRITICAL ADVISORY: Duplicate document detected. Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+              isCustom: true,
+            };
+          }
+          return doc;
+        })
+      );
+    }
+    setIsProcessing(false);
+    setToast("Duplicate document analysis complete. High-priority collision banner raised.");
+  };
+
   // Handle actual file upload from user's filesystem
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -342,6 +453,22 @@ function InstitutionWorkspaceContent() {
 
     try {
       const realHash = await computeSHA256(file);
+      const dupCheck = await checkDuplicateCrossInstitution(realHash);
+
+      if (dupCheck.isDuplicate) {
+        setDuplicateBanner({
+          show: true,
+          hash: realHash,
+          matchedInstitution: dupCheck.matchedInstitution || "Sardar Patel Institute of Technology",
+          matchedDoc: dupCheck.matchedDoc || "Land Lease Deed",
+          message:
+            dupCheck.message ||
+            "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+        });
+      } else {
+        setDuplicateBanner(null);
+      }
+
       await new Promise((r) => setTimeout(r, 400));
 
       setProcessingStage("Uploading encrypted evidence to Supabase Storage…");
@@ -548,6 +675,45 @@ function InstitutionWorkspaceContent() {
       {currentTab === "submission" && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-5">
+            {/* Immediate High-Visibility Banner for Duplicate Document */}
+            {duplicateBanner?.show && (
+              <div className="relative rounded-xl border-2 border-rust bg-[#fdf5f4] p-5 shadow-lift animate-fade-in">
+                <div className="flex items-start gap-3.5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rust text-white shadow-sm">
+                    <ShieldAlert className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="chip border-rust/30 bg-rust text-white font-bold text-[10.5px] uppercase tracking-wide">
+                        Cross-Institutional Collision Flag
+                      </span>
+                      <span className="mono text-[11px] text-rust font-semibold">
+                        RULE DUP-HASH-01 · CRITICAL ADVISORY
+                      </span>
+                    </div>
+                    <h3 className="mt-1.5 text-[16px] font-bold text-rust leading-snug">
+                      Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.
+                    </h3>
+                    <p className="mt-1.5 text-[12.5px] text-[#7d3223] leading-relaxed">
+                      The computed SHA-256 digest <span className="mono font-bold bg-white px-1.5 py-0.5 rounded border border-rust/20">{duplicateBanner.hash}</span> is an exact bit-for-bit duplicate of the Registered Land Title & Lease Deed submitted by Sardar Patel Institute of Technology (PID: 1-3686579303). Under AICTE APH §4.1, campus infrastructure deeds cannot be shared across multiple institutions.
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11.5px] border-t border-rust/20 pt-2.5 text-[#8f3e2e]">
+                      <span><strong>Originating College:</strong> Sardar Patel Institute of Technology (PID: 1-3686579303)</span>
+                      <span><strong>Document:</strong> Land Lease Deed (Campus Infrastructure)</span>
+                      <span><strong>AICTE Scrutiny Stage:</strong> Escalated to Regional Scrutiny Committee</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setDuplicateBanner(null)}
+                    className="text-muted hover:text-ink text-[12px] p-1"
+                    title="Dismiss warning"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Real File Upload Dropzone */}
             <section className="card p-5 overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3.5 mb-4">
@@ -557,7 +723,19 @@ function InstitutionWorkspaceContent() {
                     Select the target compliance category, choose your own local file, and inspect the real cryptographic SHA-256 seal.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      testDuplicateUpload();
+                    }}
+                    className="btn btn-secondary h-8 px-2.5 text-[11px] font-semibold border-rust/30 bg-rust-soft/50 text-rust hover:bg-rust-soft flex items-center gap-1.5"
+                    title="Test duplicate detection with SPIT Land Deed"
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5 text-rust" />
+                    <span>Test SPIT Land Deed Duplicate</span>
+                  </button>
                   <span className="text-[11px] text-muted font-medium">Target Category:</span>
                   <select
                     value={selectedCategory}
@@ -1346,6 +1524,19 @@ function InstitutionWorkspaceContent() {
             </div>
 
             <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {/* Duplicate Document Alert inside Preview Modal */}
+              {(previewDoc.hash === "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc" || duplicateBanner?.hash === previewDoc.hash) && (
+                <div className="mb-4 rounded-lg border-2 border-rust bg-[#fdf5f4] p-3.5 text-rust animate-fade-in">
+                  <div className="flex items-center gap-2 font-bold text-[13px]">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    <span>Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.</span>
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-[#7d3223]">
+                    The SHA-256 hash <span className="mono font-semibold">{previewDoc.hash}</span> conflicts with prior regulatory submission from SPIT (PID: 1-3686579303).
+                  </p>
+                </div>
+              )}
+
               {previewDoc.previewUrl ? (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-line overflow-hidden bg-paper/30 p-2">

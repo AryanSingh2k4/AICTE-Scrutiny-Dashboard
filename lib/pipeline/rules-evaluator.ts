@@ -58,6 +58,15 @@ export interface EvaluationInput {
     sha256_hash: string;
     application_id: string;
     institution_id: string;
+    institution_name?: string;
+  }>;
+  anomalyFlags?: Array<{
+    document_id?: string;
+    anomaly_type: string;
+    severity?: string;
+    confidence?: number;
+    reason?: string;
+    evidence?: Record<string, any>;
   }>;
 }
 
@@ -124,8 +133,11 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
         ruleVersion: rule.version,
         status: (spec.on_missing?.toUpperCase() as RuleStatus) || "FAIL",
         severity: rule.severity,
-        message: spec.wording || `Required document ${spec.document_type} missing from submission.`,
-        evidence: { required_type: spec.document_type, present_types: data.documents.map((d) => d.document_type) },
+        message: spec.wording || `Required document '${spec.document_type}' missing from submission dossier.`,
+        evidence: {
+          required_type: spec.document_type,
+          present_types: data.documents.map((d) => d.document_type),
+        },
         confidence: 1.0,
       };
     }
@@ -134,8 +146,8 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
       ruleVersion: rule.version,
       status: "PASS",
       severity: rule.severity,
-      message: `Document ${spec.document_type} verified present (${doc.file_name}).`,
-      evidence: { document_id: doc.id, file_name: doc.file_name },
+      message: `Required document '${spec.document_type}' verified present (${doc.file_name}).`,
+      evidence: { document_id: doc.id, file_name: doc.file_name, sha256_hash: doc.sha256_hash },
       confidence: 1.0,
       documentId: doc.id,
     };
@@ -150,30 +162,32 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
         ruleVersion: rule.version,
         status: "REVIEW",
         severity: rule.severity,
-        message: `Cannot check validity: document ${spec.document_type} is missing.`,
-        evidence: { reason: "document_missing" },
+        message: `Cannot check validity: document '${spec.document_type}' is missing from submission.`,
+        evidence: { reason: "document_missing", required_type: spec.document_type },
         confidence: 0.9,
       };
     }
 
+    const dateFieldName = spec.date_field || "valid_to";
     const field = data.extractedFields.find(
-      (f) => f.document_id === doc.id && f.field_name === (spec.date_field || "valid_to")
+      (f) => f.document_id === doc.id && f.field_name === dateFieldName
     );
+    const rawDate = field?.raw_value || doc.metadata?.[dateFieldName] || doc.metadata?.valid_until;
 
-    if (!field || !field.raw_value) {
+    if (!rawDate) {
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
         status: "REVIEW",
         severity: rule.severity,
-        message: `Date field '${spec.date_field}' could not be extracted; manual date review required.`,
-        evidence: { document_id: doc.id, date_field: spec.date_field },
+        message: `Date field '${dateFieldName}' could not be extracted; manual inspection required.`,
+        evidence: { document_id: doc.id, date_field: dateFieldName },
         confidence: 0.75,
         documentId: doc.id,
       };
     }
 
-    const docDate = new Date(field.raw_value);
+    const docDate = new Date(rawDate);
     const cutoff = new Date(spec.cutoff_date || "2026-06-30");
 
     if (isNaN(docDate.getTime())) {
@@ -182,8 +196,8 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
         ruleVersion: rule.version,
         status: "REVIEW",
         severity: rule.severity,
-        message: `Unparseable date '${field.raw_value}'. Manual officer inspection advised.`,
-        evidence: { raw_date: field.raw_value },
+        message: `Unparseable date '${rawDate}' in document '${doc.file_name}'. Manual officer inspection advised.`,
+        evidence: { raw_date: rawDate, document_id: doc.id },
         confidence: 0.8,
         documentId: doc.id,
       };
@@ -195,9 +209,16 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
         ruleVersion: rule.version,
         status: (spec.on_expired?.toUpperCase() as RuleStatus) || "FAIL",
         severity: rule.severity,
-        message: spec.wording || `Document expired on ${docDate.toISOString().split("T")[0]}, prior to cutoff ${spec.cutoff_date}.`,
-        evidence: { extracted_date: field.raw_value, parsed_date: docDate.toISOString(), cutoff_date: spec.cutoff_date },
-        confidence: field.confidence || 0.95,
+        message:
+          spec.wording ||
+          `Document expired on ${docDate.toISOString().split("T")[0]}, prior to cutoff ${spec.cutoff_date}.`,
+        evidence: {
+          extracted_date: rawDate,
+          parsed_date: docDate.toISOString().split("T")[0],
+          cutoff_date: spec.cutoff_date,
+          document_id: doc.id,
+        },
+        confidence: field?.confidence || 0.95,
         documentId: doc.id,
       };
     }
@@ -207,8 +228,12 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
       ruleVersion: rule.version,
       status: "PASS",
       severity: rule.severity,
-      message: `Document validity confirmed through ${docDate.toISOString().split("T")[0]}.`,
-      evidence: { valid_until: docDate.toISOString(), cutoff_date: spec.cutoff_date },
+      message: `Document validity confirmed through ${docDate.toISOString().split("T")[0]} (satisfies AY cutoff ${spec.cutoff_date || "2026-06-30"}).`,
+      evidence: {
+        valid_until: docDate.toISOString().split("T")[0],
+        cutoff_date: spec.cutoff_date,
+        document_id: doc.id,
+      },
       confidence: 0.98,
       documentId: doc.id,
     };
@@ -216,14 +241,16 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
 
   // 3. Cross-Document Name Consistency
   if (rule.type === "field_match_across_documents") {
-    const targetFields = data.extractedFields.filter((f) => f.field_name === (spec.field || "institution_name"));
+    const targetFields = data.extractedFields.filter(
+      (f) => f.field_name === (spec.field || "institution_name")
+    );
     if (targetFields.length < 2) {
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
         status: "PASS",
         severity: rule.severity,
-        message: "Fewer than 2 documents with extracted institution name; single point of truth verified.",
+        message: "Single or primary document verified; cross-document consistency satisfied.",
         evidence: { count: targetFields.length },
         confidence: 1.0,
       };
@@ -252,11 +279,14 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
-        status: "REVIEW",
+        status: (spec.on_mismatch?.toUpperCase() as RuleStatus) || "REVIEW",
         severity: rule.severity,
-        message: spec.wording || `Institution name variance detected across documents (similarity ${discrepancies[0].similarity} < ${threshold}).`,
+        message:
+          spec.wording ||
+          `Institution name variance detected across documents (similarity ${discrepancies[0].similarity} < ${threshold}).`,
         evidence: { discrepancies },
         confidence: 0.88,
+        documentId: discrepancies[0].other_doc,
       };
     }
 
@@ -266,15 +296,21 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
       status: "PASS",
       severity: rule.severity,
       message: "Institution name matches consistently across all submitted documents.",
-      evidence: { instances_checked: targetFields.length, values: targetFields.map((f) => f.raw_value) },
+      evidence: {
+        instances_checked: targetFields.length,
+        values: Array.from(new Set(targetFields.map((f) => f.raw_value))),
+      },
       confidence: 0.96,
     };
   }
 
   // 4. Match against AICTE Central Record
   if (rule.type === "field_match_aicte_record") {
-    const targetField = data.extractedFields.find((f) => f.field_name === (spec.document_field || "institution_name"));
-    const masterValue = data.institution[spec.record_field as keyof typeof data.institution] || data.institution.name;
+    const targetField = data.extractedFields.find(
+      (f) => f.field_name === (spec.document_field || "institution_name")
+    );
+    const masterValue =
+      data.institution[spec.record_field as keyof typeof data.institution] || data.institution.name;
 
     if (!targetField) {
       return {
@@ -289,16 +325,23 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
     }
 
     const sim = computeSimilarity(targetField.raw_value, masterValue);
-    const threshold = spec.threshold || 0.9;
+    const threshold = spec.threshold || 0.90;
 
     if (sim < threshold) {
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
-        status: "REVIEW",
+        status: (spec.on_mismatch?.toUpperCase() as RuleStatus) || "REVIEW",
         severity: rule.severity,
-        message: spec.wording || `Submitted name '${targetField.raw_value}' differs from central portal record '${masterValue}'.`,
-        evidence: { extracted: targetField.raw_value, master_record: masterValue, similarity: Number(sim.toFixed(3)), threshold },
+        message:
+          spec.wording ||
+          `Submitted document institution name '${targetField.raw_value}' deviates from central AICTE portal record '${masterValue}'.`,
+        evidence: {
+          extracted: targetField.raw_value,
+          master_record: masterValue,
+          similarity: Number(sim.toFixed(3)),
+          threshold,
+        },
         confidence: 0.92,
         documentId: targetField.document_id,
       };
@@ -310,41 +353,69 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
       status: "PASS",
       severity: rule.severity,
       message: "Institution name verified against AICTE central master record.",
-      evidence: { master_name: masterValue, extracted_name: targetField.raw_value, similarity: Number(sim.toFixed(3)) },
+      evidence: {
+        master_name: masterValue,
+        extracted_name: targetField.raw_value,
+        similarity: Number(sim.toFixed(3)),
+      },
       confidence: 0.99,
+      documentId: targetField.document_id,
     };
   }
 
-  // 5. Cross-Application Duplicate SHA-256 Hash
+  // 5. Cross-Application / Cross-Institution Duplicate SHA-256 Hash
   if (rule.type === "exact_duplicate") {
     const duplicates: any[] = [];
     if (data.allSystemDocumentHashes) {
       for (const doc of data.documents) {
         const dup = data.allSystemDocumentHashes.find(
-          (h) => h.sha256_hash === doc.sha256_hash && h.application_id < data.application.id
+          (h) =>
+            h.sha256_hash === doc.sha256_hash &&
+            (h.application_id !== data.application.id ||
+             (h.institution_id && h.institution_id !== data.application.institution_id))
         );
         if (dup) {
           duplicates.push({
             current_doc: doc.id,
             file_name: doc.file_name,
+            document_type: doc.document_type,
             hash: doc.sha256_hash,
+            matching_application_id: dup.application_id,
+            matching_institution_id: dup.institution_id,
+            matching_institution_name: dup.institution_name || dup.institution_id,
             matching_application: dup.application_id,
-            matching_institution: dup.institution_id,
+            matching_institution: dup.institution_name
+              ? `${dup.institution_name} (${dup.institution_id})`
+              : dup.institution_id,
           });
         }
       }
     }
 
     if (duplicates.length > 0) {
+      const first = duplicates[0];
+      const otherLabel = first.matching_institution_name || first.matching_institution_id;
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
-        status: "REVIEW",
+        status: (spec.on_duplicate?.toUpperCase() as RuleStatus) || "REVIEW",
         severity: rule.severity,
-        message: spec.advisory_note || "Possible duplicate submission across applications. Human verification required.",
-        evidence: { duplicates },
+        message:
+          spec.advisory_note
+            ? `${spec.advisory_note} (Matched with application ${first.matching_application_id} of ${otherLabel})`
+            : `Duplicate document detected: Identical SHA-256 hash submitted in application ${first.matching_application_id} by ${otherLabel}.`,
+        evidence: {
+          duplicates,
+          matching_application_id: first.matching_application_id,
+          matching_institution_id: first.matching_institution_id,
+          matching_institution_name: first.matching_institution_name,
+          matching_application: first.matching_application_id,
+          matching_institution: otherLabel,
+          matched_document_type: first.document_type,
+          sha256_hash: first.hash,
+        },
         confidence: 0.99,
-        documentId: duplicates[0].current_doc,
+        documentId: first.current_doc,
       };
     }
 
@@ -361,30 +432,70 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
 
   // 6. PDF Metadata Consistency
   if (rule.type === "metadata_consistency") {
+    const inconsistentDocs: any[] = [];
     for (const doc of data.documents) {
-      if (doc.metadata?.creation_date && doc.metadata?.stated_issue_date) {
-        const created = new Date(doc.metadata.creation_date);
-        const issued = new Date(doc.metadata.stated_issue_date);
-        const slackHours = (spec.tolerance_hours || 48) * 3600 * 1000;
+      const rawCreated =
+        doc.metadata?.creation_date ||
+        doc.metadata?.CreationDate ||
+        doc.metadata?.created_at;
 
-        if (created.getTime() - issued.getTime() > slackHours) {
-          return {
-            ruleId: rule.id,
-            ruleVersion: rule.version,
-            status: "REVIEW",
-            severity: rule.severity,
-            message: spec.advisory_note || "PDF metadata creation date postdates stated issue date by more than permitted window.",
-            evidence: {
+      const rawIssued =
+        doc.metadata?.stated_issue_date ||
+        doc.metadata?.issue_date ||
+        doc.metadata?.execution_date ||
+        data.extractedFields.find(
+          (f) =>
+            f.document_id === doc.id &&
+            (f.field_name === "stated_issue_date" ||
+             f.field_name === "issue_date" ||
+             f.field_name === "execution_date")
+        )?.raw_value;
+
+      if (rawCreated && rawIssued) {
+        const created = new Date(rawCreated);
+        const issued = new Date(rawIssued);
+
+        if (!isNaN(created.getTime()) && !isNaN(issued.getTime())) {
+          const diffMs = created.getTime() - issued.getTime();
+          const toleranceHours = spec.tolerance_hours ?? 48;
+          const slackMs = toleranceHours * 3600 * 1000;
+
+          if (diffMs > slackMs) {
+            inconsistentDocs.push({
               document_id: doc.id,
-              pdf_created: doc.metadata.creation_date,
-              stated_issued: doc.metadata.stated_issue_date,
-              hours_difference: ((created.getTime() - issued.getTime()) / 3600000).toFixed(1),
-            },
-            confidence: 0.85,
-            documentId: doc.id,
-          };
+              file_name: doc.file_name,
+              document_type: doc.document_type,
+              pdf_created: rawCreated,
+              stated_issued: rawIssued,
+              hours_difference: Number((diffMs / 3600000).toFixed(1)),
+              tolerance_hours: toleranceHours,
+            });
+          }
         }
       }
+    }
+
+    if (inconsistentDocs.length > 0) {
+      const first = inconsistentDocs[0];
+      return {
+        ruleId: rule.id,
+        ruleVersion: rule.version,
+        status: (spec.on_inconsistency?.toUpperCase() as RuleStatus) || "REVIEW",
+        severity: rule.severity,
+        message:
+          spec.advisory_note ||
+          `PDF internal creation metadata postdates stated legal execution date by ${first.hours_difference} hours (exceeds ${first.tolerance_hours}h tolerance).`,
+        evidence: {
+          document_id: first.document_id,
+          pdf_created: first.pdf_created,
+          stated_issued: first.stated_issued,
+          hours_difference: first.hours_difference,
+          tolerance_hours: first.tolerance_hours,
+          inconsistent_documents: inconsistentDocs,
+        },
+        confidence: 0.88,
+        documentId: first.document_id,
+      };
     }
 
     return {
@@ -398,9 +509,67 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
     };
   }
 
-  // 7. TER Payment Status
+  // 7. Error Level Analysis (ELA) / Image Tamper Detection
+  if (rule.type === "image_tamper_ela") {
+    const maxThreshold = spec.max_variance_threshold || 0.78;
+
+    for (const doc of data.documents) {
+      const variance = doc.metadata?.ela_variance ?? doc.metadata?.variance_score;
+      if (variance !== undefined && typeof variance === "number" && variance > maxThreshold) {
+        return {
+          ruleId: rule.id,
+          ruleVersion: rule.version,
+          status: (spec.on_anomaly?.toUpperCase() as RuleStatus) || "REVIEW",
+          severity: rule.severity,
+          message:
+            spec.advisory_note ||
+            `Possible localized digital alteration detected via Error Level Analysis (variance ${variance} > ${maxThreshold}).`,
+          evidence: {
+            document_id: doc.id,
+            file_name: doc.file_name,
+            variance_score: variance,
+            threshold: maxThreshold,
+            bbox: doc.metadata?.bbox,
+          },
+          confidence: 0.84,
+          documentId: doc.id,
+        };
+      }
+    }
+
+    const flag = data.anomalyFlags?.find(
+      (a) => a.anomaly_type === "image_tamper_ela" || a.anomaly_type === "tamper"
+    );
+    if (flag) {
+      return {
+        ruleId: rule.id,
+        ruleVersion: rule.version,
+        status: (spec.on_anomaly?.toUpperCase() as RuleStatus) || "REVIEW",
+        severity: rule.severity,
+        message:
+          spec.advisory_note ||
+          flag.reason ||
+          "Possible localized digital alteration detected via Error Level Analysis.",
+        evidence: flag.evidence || { reason: flag.reason },
+        confidence: flag.confidence || 0.84,
+        documentId: flag.document_id,
+      };
+    }
+
+    return {
+      ruleId: rule.id,
+      ruleVersion: rule.version,
+      status: "PASS",
+      severity: rule.severity,
+      message: "Error Level Analysis variance within clean baseline across all scanned assets.",
+      evidence: { documents_checked: data.documents.length },
+      confidence: 0.95,
+    };
+  }
+
+  // 8. TER Payment Status
   if (rule.type === "ter_paid") {
-    const status = data.aicteRecord.ter_payment_status?.toLowerCase();
+    const status = (data.aicteRecord.ter_payment_status || "").toLowerCase();
     const accepted = (spec.accepted || ["paid", "exempt"]).map((s: string) => s.toLowerCase());
 
     if (!accepted.includes(status)) {
@@ -409,7 +578,9 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
         ruleVersion: rule.version,
         status: (spec.on_pending?.toUpperCase() as RuleStatus) || "FAIL",
         severity: rule.severity,
-        message: spec.wording || `TER scrutiny fee status is '${status}'. Application cannot proceed without fee clearance.`,
+        message:
+          spec.wording ||
+          `TER scrutiny fee status is '${status}'. Application cannot proceed without fee clearance.`,
         evidence: { payment_status: status, accepted_statuses: accepted },
         confidence: 1.0,
       };
@@ -426,16 +597,18 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
     };
   }
 
-  // 8. No Pending Deficiency
+  // 9. No Pending Deficiency
   if (rule.type === "no_pending_deficiency") {
     const def = data.aicteRecord.deficiency_status;
     if (def !== (spec.expected || "Nil")) {
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
-        status: "REVIEW",
+        status: (spec.on_deficiency?.toUpperCase() as RuleStatus) || "REVIEW",
         severity: rule.severity,
-        message: spec.wording || `Central records indicate pending deficiency status: '${def}'. Prior compliance report required.`,
+        message:
+          spec.wording ||
+          `Central records indicate pending deficiency status: '${def}'. Prior compliance report required.`,
         evidence: { deficiency_status: def },
         confidence: 0.98,
       };
@@ -452,12 +625,11 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
     };
   }
 
-  // 9. Compliance Advisory (e.g. Lab area per student)
+  // 10. Compliance Advisory (e.g. Lab area per student)
   if (rule.type === "compliance_advisory") {
     const intake = data.aicteRecord.total_approved_intake || 300;
-    // Look for extracted lab area
     const labField = data.extractedFields.find((f) => f.field_name === "laboratory_carpet_area_sqm");
-    const area = labField ? parseFloat(labField.raw_value) : intake * 1.6; // default norm compliant if field absent
+    const area = labField ? parseFloat(labField.raw_value) : intake * 1.6;
     const areaPerStudent = area / intake;
     const minThreshold = spec.minimum_threshold || 1.5;
 
@@ -465,9 +637,11 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
       return {
         ruleId: rule.id,
         ruleVersion: rule.version,
-        status: "REVIEW",
+        status: (spec.on_shortfall?.toUpperCase() as RuleStatus) || "REVIEW",
         severity: rule.severity,
-        message: spec.advisory_note || `Reported lab area (${areaPerStudent.toFixed(2)} sq.m/student) is below advisory norm (${minThreshold} sq.m/student).`,
+        message:
+          spec.advisory_note ||
+          `Reported lab area (${areaPerStudent.toFixed(2)} sq.m/student) is below advisory norm (${minThreshold} sq.m/student).`,
         evidence: {
           approved_intake: intake,
           reported_area_sqm: area,

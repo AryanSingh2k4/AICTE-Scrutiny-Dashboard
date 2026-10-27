@@ -20,17 +20,99 @@ function FakeQr({ size = 52 }: { size?: number }) {
   );
 }
 
-function PaperShell({ children, className }: { children: React.ReactNode; className?: string }) {
+function BoundingBoxOverlay({
+  highlight,
+  showOverlay,
+}: {
+  highlight?: Finding;
+  showOverlay: boolean;
+}) {
+  if (!showOverlay || !highlight?.bbox) return null;
+
+  const rawBbox = highlight.bbox;
+  const x = rawBbox.x ?? 0;
+  const y = rawBbox.y ?? 0;
+  const w = rawBbox.w ?? rawBbox.width ?? 30;
+  const h = rawBbox.h ?? rawBbox.height ?? 15;
+  const label =
+    rawBbox.label ||
+    (highlight.ruleType === "image_forensics"
+      ? "Possible alteration"
+      : highlight.title) ||
+    "Flagged region";
+  const conf =
+    typeof highlight.confidence === "number"
+      ? highlight.confidence.toFixed(2)
+      : "0.85";
+
+  return (
+    <>
+      <div
+        className="absolute z-30 rounded-[2px] border-2 border-rust bg-rust/15 shadow-[0_0_0_1px_rgba(255,255,255,.5),0_0_24px_rgba(162,72,53,.25)] transition-all"
+        style={{
+          left: `${x}%`,
+          top: `${y}%`,
+          width: `${w}%`,
+          height: `${h}%`,
+        }}
+      >
+        <div className="absolute -top-[20px] left-[-2px] flex items-center gap-1.5 whitespace-nowrap rounded-t-[3px] bg-rust px-2 py-0.5 text-[7px] font-bold text-white shadow-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+          <span>{label}</span>
+          <span className="opacity-80">· {conf}</span>
+        </div>
+        {/* SVG vector boundary & corner crosshairs */}
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect
+            x="0"
+            y="0"
+            width="100%"
+            height="100%"
+            fill="none"
+            stroke="#a24835"
+            strokeWidth="1.5"
+            strokeDasharray="4 2"
+          />
+          {/* Corner crosshairs */}
+          <line x1="-3" y1="0" x2="5" y2="0" stroke="#a24835" strokeWidth="2" />
+          <line x1="0" y1="-3" x2="0" y2="5" stroke="#a24835" strokeWidth="2" />
+          <line x1="100%" y1="0" x2="calc(100% - 5px)" y2="0" stroke="#a24835" strokeWidth="2" />
+          <line x1="100%" y1="-3" x2="100%" y2="5" stroke="#a24835" strokeWidth="2" />
+        </svg>
+        <span className="pointer-events-none absolute inset-0 animate-pulse-soft border border-white/40" />
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px animate-scan bg-gradient-to-r from-transparent via-pine/60 to-transparent" />
+    </>
+  );
+}
+
+function PaperShell({
+  children,
+  className,
+  highlight,
+  showOverlay,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  highlight?: Finding;
+  showOverlay?: boolean;
+}) {
   return (
     <div className={cn("doc-paper relative mx-auto w-full max-w-[560px] overflow-hidden rounded-[2px]", className)}>
       {children}
+      {highlight && showOverlay ? (
+        <BoundingBoxOverlay highlight={highlight} showOverlay={showOverlay} />
+      ) : null}
     </div>
   );
 }
 
 function AffidavitPreview({ highlight, showOverlay }: { highlight?: Finding; showOverlay: boolean }) {
   return (
-    <PaperShell>
+    <PaperShell highlight={highlight} showOverlay={showOverlay}>
       <div className="relative px-9 pb-8 pt-7 sm:px-12">
         <div className="flex items-start justify-between border-b border-[#d9d2c1] pb-4">
           <div>
@@ -96,35 +178,14 @@ function AffidavitPreview({ highlight, showOverlay }: { highlight?: Finding; sho
         <div className="absolute right-10 top-[56%] flex h-[54px] w-[54px] rotate-[-8deg] items-center justify-center rounded-full border-2 border-[#9d8f75]/50 text-center text-[5.5px] uppercase leading-tight tracking-wider text-[#8e8068]/70">
           Notary<br />Seal<br />Pune
         </div>
-
-        {showOverlay && highlight?.bbox ? (
-          <div
-            className="absolute z-20 rounded-[2px] border-2 border-rust bg-rust/10 shadow-[0_0_0_1px_rgba(255,255,255,.4),0_0_24px_rgba(162,72,53,.18)]"
-            style={{
-              left: `${highlight.bbox.x}%`,
-              top: `${highlight.bbox.y}%`,
-              width: `${highlight.bbox.w}%`,
-              height: `${highlight.bbox.h}%`,
-            }}
-          >
-            <div className="absolute -top-[19px] left-[-2px] flex items-center gap-1 whitespace-nowrap rounded-t-[2px] bg-rust px-1.5 py-0.5 text-[6.5px] font-semibold text-white">
-              <span className="h-1 w-1 rounded-full bg-white/80" /> Possible alteration · 0.81
-            </div>
-            <span className="absolute inset-0 animate-pulse-soft border border-white/40" />
-          </div>
-        ) : null}
-
-        {showOverlay ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px animate-scan bg-gradient-to-r from-transparent via-pine/60 to-transparent" />
-        ) : null}
       </div>
     </PaperShell>
   );
 }
 
-function NocPreview() {
+function NocPreview({ highlight, showOverlay }: { highlight?: Finding; showOverlay: boolean }) {
   return (
-    <PaperShell>
+    <PaperShell highlight={highlight} showOverlay={showOverlay}>
       <div className="relative px-10 pb-8 pt-7 sm:px-12">
         <div className="flex items-center gap-4 border-b-2 border-[#8a2d26] pb-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#8a2d26] text-[7px] font-semibold uppercase leading-tight tracking-wider text-[#8a2d26]">
@@ -165,9 +226,9 @@ function NocPreview() {
   );
 }
 
-function NbaPreview() {
+function NbaPreview({ highlight, showOverlay }: { highlight?: Finding; showOverlay: boolean }) {
   return (
-    <PaperShell>
+    <PaperShell highlight={highlight} showOverlay={showOverlay}>
       <div className="relative px-9 pb-8 pt-7 sm:px-12">
         <div className="flex items-start justify-between border-b border-[#cbbf9f] pb-4">
           <div className="flex items-center gap-3">
@@ -210,11 +271,11 @@ function NbaPreview() {
   );
 }
 
-function FirePreview() {
+function FirePreview({ highlight, showOverlay }: { highlight?: Finding; showOverlay: boolean }) {
   return (
-    <div className="relative mx-auto w-full max-w-[560px] rotate-[0.7deg]">
-      <div className="doc-paper relative overflow-hidden rounded-[2px] px-9 pb-8 pt-7 sm:px-12">
-        <div className="absolute inset-0 opacity-[0.08] [background-image:repeating-linear-gradient(0deg,transparent,transparent_3px,#4a4030_3px,#4a4030_4px)]" />
+    <PaperShell highlight={highlight} showOverlay={showOverlay} className="rotate-[0.7deg]">
+      <div className="relative px-9 pb-8 pt-7 sm:px-12">
+        <div className="absolute inset-0 opacity-[0.08] [background-image:repeating-linear-gradient(0deg,transparent,transparent_3px,#4a4030_3px,#4a4030_4px)] pointer-events-none" />
         <div className="relative">
           <div className="flex items-start justify-between border-b-2 border-[#7b3d2e] pb-3">
             <div className="flex items-center gap-3">
@@ -253,13 +314,54 @@ function FirePreview() {
           </div>
         </div>
       </div>
-    </div>
+    </PaperShell>
   );
 }
 
-function TrustPreview() {
+function LandPreview({ highlight, showOverlay }: { highlight?: Finding; showOverlay: boolean }) {
   return (
-    <PaperShell>
+    <PaperShell highlight={highlight} showOverlay={showOverlay}>
+      <div className="relative px-9 pb-8 pt-7 sm:px-12">
+        <div className="flex items-start justify-between border-b-2 border-[#5c4a30] pb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#5c4a30] text-[6.5px] font-bold uppercase leading-tight tracking-wider text-[#5c4a30]">Revenue<br />Dept</div>
+            <div>
+              <div className="doc-serif text-[13px] font-semibold uppercase tracking-[0.05em] text-[#42331f]">Sub-Registrar of Assurances</div>
+              <div className="doc-serif mt-0.5 text-[7.5px] text-[#78664f]">Government of Maharashtra · Registered Title & Lease Deed</div>
+            </div>
+          </div>
+          <div className="mono text-[6.5px] text-[#78664f]">REG-LAND-2026</div>
+        </div>
+        <div className="mt-6 text-center">
+          <div className="doc-serif text-[21px] uppercase tracking-[0.08em] text-[#332b21]">Registered Land Title Deed</div>
+          <div className="mono mt-1 text-[7px] uppercase tracking-[0.15em] text-[#857b70]">Permanent Campus Site · Unencumbered Contiguous Possession</div>
+        </div>
+        <div className="doc-serif mt-6 space-y-3 text-[9.5px] leading-[1.85] text-[#45413a]">
+          <p>This is to certify that the registered deed and revenue records for the institutional campus premises have been scrutinized and verified under APH norms.</p>
+          <div className="rounded-sm border border-[#ded7c8] bg-[#f6f2e7]/80 px-4 py-3 text-[8.5px]">
+            <div className="grid grid-cols-[100px_1fr] gap-y-2">
+              <span className="text-[#8c8375]">Campus Location</span><span>Metropolitan Region · Western Division</span>
+              <span className="text-[#8c8375]">Land Area</span><span className="mono font-semibold">Over 2.50 Contiguous Acres</span>
+              <span className="text-[#8c8375]">Encumbrances</span><span className="font-semibold text-pine">Nil · Clear Registered Title</span>
+            </div>
+          </div>
+          <p>Registered in Volume Index II of the competent sub-registry under the Indian Registration Act, 1908.</p>
+        </div>
+        <div className="mt-8 flex items-end justify-between">
+          <FakeQr size={48} />
+          <div className="text-right">
+            <div className="doc-serif text-[14px] italic text-[#45413a]">V. R. Kulkarni</div>
+            <div className="mt-0.5 text-[6.5px] uppercase tracking-[0.12em] text-[#857b70]">Sub-Registrar of Assurances</div>
+          </div>
+        </div>
+      </div>
+    </PaperShell>
+  );
+}
+
+function TrustPreview({ highlight, showOverlay }: { highlight?: Finding; showOverlay: boolean }) {
+  return (
+    <PaperShell highlight={highlight} showOverlay={showOverlay}>
       <div className="px-10 pb-8 pt-7 sm:px-12">
         <div className="border-b-2 border-[#6f5b38] pb-3">
           <div className="doc-serif text-[11px] font-semibold uppercase tracking-[0.08em] text-[#433a28]">Office of the Charity Commissioner</div>
@@ -321,14 +423,16 @@ export function DocumentPreview({
           </div>
         ) : document.type === "affidavit" ? (
           <AffidavitPreview highlight={highlight} showOverlay={showOverlay} />
-        ) : document.type === "noc" ? (
-          <NocPreview />
-        ) : document.type === "accreditation" ? (
-          <NbaPreview />
-        ) : document.type === "fire_safety" ? (
-          <FirePreview />
+        ) : document.type.includes("noc") ? (
+          <NocPreview highlight={highlight} showOverlay={showOverlay} />
+        ) : document.type.includes("accreditation") || document.type.includes("nba") ? (
+          <NbaPreview highlight={highlight} showOverlay={showOverlay} />
+        ) : document.type.includes("fire") ? (
+          <FirePreview highlight={highlight} showOverlay={showOverlay} />
+        ) : document.type.includes("land") ? (
+          <LandPreview highlight={highlight} showOverlay={showOverlay} />
         ) : (
-          <TrustPreview />
+          <TrustPreview highlight={highlight} showOverlay={showOverlay} />
         )}
       </div>
     </div>

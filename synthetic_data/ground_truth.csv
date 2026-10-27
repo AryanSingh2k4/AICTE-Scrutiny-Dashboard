@@ -1,41 +1,6 @@
 application_id,institution_id,institution_name,defect_code,defect_category,affected_document,expected_status,ground_truth_reason
-APP-2026-8941,1-3686579303,Sardar Patel Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8942,1-3542621108,Dr. A.P.J. Abdul Kalam College of Engineering & Technology,EOA-EXP-02,Validity,accreditation_nba,FAIL,Accreditation expired on 30 June 2025 prior to commencement of AY 2026-27
-APP-2026-8943,1-3109747451,Vishwakarma Institute of Technology,EOA-XDOC-01,Consistency,fire_safety,FAIL,Institution name on Fire NOC lists polytechnic subsidiary rather than degree institute
-APP-2026-8944,1-3756528252,Bharati Vidyapeeth Engineering College,EOA-AIC-01,Records,affidavit,REVIEW,Affidavit lists older society name diverging from central AICTE portal master record
-APP-2026-8945,1-3654049436,Mahatma Gandhi Institute of Technology & Science,EOA-TER-01,Compliance,application,FAIL,TER scrutiny fee payment status pending in central treasury
-APP-2026-8946,1-3226541099,Indira Gandhi College of Engineering & Technology,EOA-DEF-01,Compliance,application,REVIEW,Previous committee inspection flagged unresolved library computing deficiency
-APP-2026-8947,1-3148532577,Shivaji Institute of Technology,EOA-DUP-01,Integrity,land_ownership,REVIEW,Exact duplicate land deed file hash submitted across distinct institutions
-APP-2026-8948,1-3924255163,Swami Vivekananda Engineering College,EOA-META-01,Integrity,affidavit,REVIEW,PDF metadata creation date (October 2026) postdates stated legal stamp date (May 2024)
-APP-2026-8949,1-3903735581,Rajiv Gandhi Institute of Technology & Science,EOA-ALT-01,Integrity,accreditation_nba,REVIEW,Possible digital alteration detected on accreditation tier score via ELA (confidence 0.84)
-APP-2026-8950,1-3942755630,Netaji Subhas College of Engineering & Technology,EOA-DOC-04,Completeness,fire_safety,FAIL,Mandatory municipal fire safety NOC omitted from application dossier
-APP-2026-8951,1-3428414718,Birla Institute of Technology,ISSUER-TIMEOUT,Verification,noc_university,REVIEW,State Technical University verification portal timed out (503); routed to manual review
-APP-2026-8952,1-3072370545,Thakur Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8953,1-3101281557,Rajarambapu Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8954,1-3452991960,Pimpri Chinchwad College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8955,1-3516854671,K.J. Somaiya Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8956,1-3803132646,Symbiosis Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8957,1-3621609600,Sinhgad Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8958,1-3339492674,D.Y. Patil College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8959,1-3755420240,MIT World Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8960,1-3738194420,Vellore Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8961,1-3757704655,Sardar Patel Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8962,1-3965212976,Dr. A.P.J. Abdul Kalam College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8963,1-3790880074,Vishwakarma Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8964,1-3239362341,Bharati Vidyapeeth Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8965,1-3623403479,Mahatma Gandhi Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8966,1-3558260221,Indira Gandhi College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8967,1-3748621833,Shivaji Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8968,1-3474364121,Swami Vivekananda Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8969,1-3026226563,Rajiv Gandhi Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8970,1-3835822550,Netaji Subhas College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8971,1-3458209399,Birla Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8972,1-3343285529,Thakur Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8973,1-3222086735,Rajarambapu Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8974,1-3524232414,Pimpri Chinchwad College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8975,1-3690147183,K.J. Somaiya Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8976,1-3020812641,Symbiosis Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8977,1-3499326438,Sinhgad Institute of Technology & Science,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8978,1-3635760237,D.Y. Patil College of Engineering & Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8979,1-3113321496,MIT World Institute of Technology,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
-APP-2026-8980,1-3914520040,Vellore Engineering College,CLEAN,None,None,PASS,Fully compliant application with valid documents and verified QR
+APP-2026-8941,1-3686579303,Sardar Patel Institute of Technology,CLEAN,None,None,PASS,Fully compliant benchmark application with valid documents and verified QR signatures
+APP-2026-9012,1-10358461,Lokmanya Tilak College of Engineering,EOA-DUP-01,Integrity,land_ownership,REVIEW,Exact duplicate land deed file hash submitted matching Sardar Patel Institute of Technology
+APP-2026-9012,1-10358461,Lokmanya Tilak College of Engineering,EOA-ALT-01,Integrity,accreditation_nba,REVIEW,Possible digital alteration detected on accreditation tier score via ELA bounding box
+APP-2026-9012,1-10358461,Lokmanya Tilak College of Engineering,EOA-META-01,Integrity,affidavit,REVIEW,PDF metadata creation date postdates stated legal stamp execution date
+APP-2026-9012,1-10358461,Lokmanya Tilak College of Engineering,ISSUER-TIMEOUT,Verification,fire_safety,REVIEW,Municipal Fire Services verification endpoint timed out (503); routed to manual review queue

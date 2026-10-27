@@ -94,7 +94,7 @@ export interface Finding {
   source: string;
   timestamp: string;
   recommendation: string;
-  bbox?: { x: number; y: number; w: number; h: number };
+  bbox?: { x: number; y: number; w?: number; width?: number; h?: number; height?: number; label?: string };
   status: "open" | "acknowledged";
 }
 

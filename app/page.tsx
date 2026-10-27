@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Building2,
   Check,
-  Copy,
   FileCheck2,
   Fingerprint,
   GraduationCap,
@@ -15,7 +14,6 @@ import {
   ScanLine,
   ShieldCheck,
   UserRoundCheck,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/display";
 import type { Role } from "@/lib/types";
@@ -127,22 +125,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [guideOpen, setGuideOpen] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  const copyText = (key: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
-
-  const autofillCredentials = (targetMode: "aicte" | "college", targetEmail: string, targetPass: string) => {
-    setMode(targetMode);
-    setEmail(targetEmail);
-    setPassword(targetPass);
-    setAuthError(null);
-    setGuideOpen(false);
-  };
 
   const handleModeChange = (newMode: "aicte" | "college") => {
     setMode(newMode);
@@ -170,24 +152,6 @@ export default function LoginPage() {
       });
 
       if (error) {
-        console.warn("Supabase auth notice:", error.message);
-        // Fallback demo verification
-        const isAicteDemo = cleanEmail === "officer@aicte.gov.in" && password === "AICTE";
-        const isSpitDemo = cleanEmail === "principal@sardarpatel.edu.in" && password === "sardarpatel";
-        const isLtceDemo = cleanEmail === "principal@ltce.in" && password === "ltce";
-
-        if (isAicteDemo) {
-          window.localStorage.setItem("scrutinix-role", "scrutiny_officer");
-          router.push("/overview");
-          return;
-        } else if (isSpitDemo || isLtceDemo) {
-          const college = isLtceDemo ? "ltce" : "sardarpatel";
-          window.localStorage.setItem("scrutinix-role", "institution");
-          window.localStorage.setItem("scrutinix-college", college);
-          router.push(`/institution?college=${college}`);
-          return;
-        }
-
         setAuthError(error.message || "Invalid credentials. Please check your email and password.");
         setSubmitting(false);
         return;
@@ -383,17 +347,8 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-3.5 flex items-center justify-between text-[9px] text-muted">
-            <span>
-              Need help?{" "}
-              <button
-                type="button"
-                onClick={() => setGuideOpen(true)}
-                className="font-medium text-pine underline decoration-pine/30 underline-offset-2 hover:text-pine-deep"
-              >
-                Read login credentials & guide
-              </button>
-            </span>
-            <span className="mono">VERIFIED WORKSPACE</span>
+            <span>AICTE National Portal · Scrutiny Authentication</span>
+            <span className="mono">SECURE ENVIRONMENT</span>
           </div>
         </div>
 
@@ -401,162 +356,6 @@ export default function LoginPage() {
           AICTE · All India Council for Technical Education · Internal prototype
         </div>
       </section>
-
-      {/* Login Credentials & Guide Modal */}
-      {guideOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="relative w-full max-w-[520px] overflow-hidden rounded-xl border border-line-strong bg-surface shadow-lift animate-fade-up">
-            <div className="flex items-center justify-between border-b border-line px-5 py-3.5 bg-paper/60">
-              <div>
-                <h3 className="font-bold text-ink text-[14px]">How to Log In & Credentials</h3>
-                <p className="text-[11px] text-muted mt-0.5">Copy credentials or click autofill to test either portal</p>
-              </div>
-              <button
-                onClick={() => setGuideOpen(false)}
-                className="btn-ghost h-8 w-8 rounded-md flex items-center justify-center text-muted hover:text-ink"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-3.5 max-h-[75vh] overflow-y-auto text-[12px]">
-              {/* Account 1 */}
-              <div className="rounded-lg border border-line bg-paper/40 p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-ink">1. AICTE Scrutiny Officer</span>
-                    <span className="ml-2 chip border-pine/30 bg-pine-soft text-pine text-[9px]">Scrutiny Desk</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => autofillCredentials("aicte", "officer@aicte.gov.in", "AICTE")}
-                    className="btn btn-secondary h-7 px-2 text-[10.5px]"
-                  >
-                    Auto-fill
-                  </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 pt-1">
-                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="truncate text-ink mr-2">officer@aicte.gov.in</span>
-                    <button
-                      type="button"
-                      onClick={() => copyText("aicte-email", "officer@aicte.gov.in")}
-                      className="text-muted hover:text-pine"
-                      title="Copy email"
-                    >
-                      {copiedKey === "aicte-email" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="text-ink">AICTE</span>
-                    <button
-                      type="button"
-                      onClick={() => copyText("aicte-pass", "AICTE")}
-                      className="text-muted hover:text-pine"
-                      title="Copy password"
-                    >
-                      {copiedKey === "aicte-pass" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account 2 */}
-              <div className="rounded-lg border border-line bg-paper/40 p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-ink">2. Sardar Patel Inst. of Tech</span>
-                    <span className="ml-2 chip border-pine/30 bg-pine-soft text-pine text-[9px]">PID: 1-3686579303</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => autofillCredentials("college", "principal@sardarpatel.edu.in", "sardarpatel")}
-                    className="btn btn-secondary h-7 px-2 text-[10.5px]"
-                  >
-                    Auto-fill
-                  </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 pt-1">
-                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="truncate text-ink mr-2">principal@sardarpatel.edu.in</span>
-                    <button
-                      type="button"
-                      onClick={() => copyText("spit-email", "principal@sardarpatel.edu.in")}
-                      className="text-muted hover:text-pine"
-                      title="Copy email"
-                    >
-                      {copiedKey === "spit-email" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="text-ink">sardarpatel</span>
-                    <button
-                      type="button"
-                      onClick={() => copyText("spit-pass", "sardarpatel")}
-                      className="text-muted hover:text-pine"
-                      title="Copy password"
-                    >
-                      {copiedKey === "spit-pass" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account 3 */}
-              <div className="rounded-lg border border-line bg-paper/40 p-3.5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-bold text-ink">3. Lokmanya Tilak College (LTCE)</span>
-                    <span className="ml-2 chip border-pine/30 bg-pine-soft text-pine text-[9px]">PID: 1-10358461</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => autofillCredentials("college", "principal@ltce.in", "ltce")}
-                    className="btn btn-secondary h-7 px-2 text-[10.5px]"
-                  >
-                    Auto-fill
-                  </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 pt-1">
-                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="truncate text-ink mr-2">principal@ltce.in</span>
-                    <button
-                      type="button"
-                      onClick={() => copyText("ltce-email", "principal@ltce.in")}
-                      className="text-muted hover:text-pine"
-                      title="Copy email"
-                    >
-                      {copiedKey === "ltce-email" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="text-ink">ltce</span>
-                    <button
-                      type="button"
-                      onClick={() => copyText("ltce-pass", "ltce")}
-                      className="text-muted hover:text-pine"
-                      title="Copy password"
-                    >
-                      {copiedKey === "ltce-pass" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-line bg-paper/50 px-5 py-3">
-              <span className="text-[11px] text-muted">Click Auto-fill or copy credentials to proceed</span>
-              <button
-                type="button"
-                onClick={() => setGuideOpen(false)}
-                className="btn btn-primary h-8 px-3 text-[11.5px]"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

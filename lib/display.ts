@@ -10,13 +10,16 @@ export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export const applicationStatus: Record<ApplicationStatus, { label: string; className: string; dot: string }> = {
+export const applicationStatus: Record<string, { label: string; className: string; dot: string }> = {
   processing: { label: "Processing", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate" },
   findings_ready: { label: "Findings ready", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" },
+  findings_available: { label: "Findings available", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" },
   in_review: { label: "In review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" },
   awaiting_source: { label: "Awaiting source", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate" },
   clarification_sent: { label: "Clarification sent", className: "bg-paper text-muted border-line-strong", dot: "bg-[#9b9a90]" },
   ready_for_decision: { label: "Ready for decision", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" },
+  ready_for_review: { label: "Ready for review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" },
+  submitted: { label: "Submitted", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate" },
 };
 
 export const riskLevel: Record<RiskLevel, { label: string; className: string; dot: string }> = {
@@ -34,7 +37,8 @@ export const documentStatus: Record<DocumentStatus, { label: string; className: 
   manual_review: { label: "Manual review", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate" },
 };
 
-export const severity: Record<FindingSeverity, { label: string; className: string; dot: string; bar: string }> = {
+export const severity: Record<string, { label: string; className: string; dot: string; bar: string }> = {
+  critical: { label: "Critical", className: "bg-rust-soft text-rust border-rust/15", dot: "bg-rust", bar: "bg-rust" },
   high: { label: "High", className: "bg-rust-soft text-rust border-rust/15", dot: "bg-rust", bar: "bg-rust" },
   medium: { label: "Medium", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre", bar: "bg-ochre" },
   low: { label: "Low", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine", bar: "bg-pine" },

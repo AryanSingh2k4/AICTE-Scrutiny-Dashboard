@@ -7,10 +7,13 @@ export type Role =
 export type ApplicationStatus =
   | "processing"
   | "findings_ready"
+  | "findings_available"
   | "in_review"
   | "awaiting_source"
   | "clarification_sent"
-  | "ready_for_decision";
+  | "ready_for_decision"
+  | "ready_for_review"
+  | "submitted";
 
 export type RiskLevel = "high" | "medium" | "low";
 
@@ -22,7 +25,7 @@ export type DocumentStatus =
   | "processing"
   | "manual_review";
 
-export type FindingSeverity = "high" | "medium" | "low" | "info";
+export type FindingSeverity = "critical" | "high" | "medium" | "low" | "info";
 
 export type VerificationStatus =
   | "not_started"

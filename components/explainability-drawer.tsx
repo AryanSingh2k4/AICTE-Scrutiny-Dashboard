@@ -42,7 +42,7 @@ export function ExplainabilityDrawer({
   }, [onClose, open]);
 
   if (!open || !finding) return null;
-  const item = severity[finding.severity];
+  const item = severity[finding.severity] || severity.high;
 
   return (
     <div className="fixed inset-0 z-[85] flex justify-end bg-ink/25 backdrop-blur-[1px]" onMouseDown={onClose}>

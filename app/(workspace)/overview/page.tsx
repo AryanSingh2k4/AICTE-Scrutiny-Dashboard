@@ -180,7 +180,7 @@ export default function OverviewPage() {
                         <RiskChip level={app.risk} />
                       </td>
                       <td className="px-3 py-3.5">
-                        <span className="mono text-[12px] capitalize text-ink">{app.status.replace("_", " ")}</span>
+                        <span className="mono text-[12px] capitalize text-ink">{app.status.replaceAll("_", " ")}</span>
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <Link href={`/applications/${app.id}`} className="btn-ghost inline-flex items-center gap-1 text-[12.5px] font-medium text-pine hover:text-pine-deep">

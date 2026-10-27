@@ -181,8 +181,8 @@ export default function ApplicationsPage() {
             </thead>
             <tbody className="divide-y divide-line">
               {filtered.map((app) => {
-                const statusItem = applicationStatus[app.status];
-                const riskItem = riskLevel[app.risk];
+                const statusItem = applicationStatus[app.status] || { label: "In Review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" };
+                const riskItem = riskLevel[app.risk] || { label: "Medium", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" };
                 return (
                   <tr key={app.id} className="row-hover group">
                     <td className="px-5 py-3.5">

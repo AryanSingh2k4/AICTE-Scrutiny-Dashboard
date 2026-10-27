@@ -123,7 +123,7 @@ function ValidationReport({ application, appFindings, onRerun, rerunning }: { ap
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[13.5px] font-semibold text-ink">{rule.title}</span>
-                  <span className={cn("chip border", rule.finding ? severity[rule.finding.severity].className : "border-pine/15 bg-pine-soft text-pine")}>
+                  <span className={cn("chip border", rule.finding ? (severity[rule.finding.severity] || severity.high).className : "border-pine/15 bg-pine-soft text-pine")}>
                     {rule.finding ? "Finding" : "Pass"}
                   </span>
                 </div>
@@ -354,8 +354,8 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
   const selectedFinding = appFindings.find((finding) => finding.id === selectedFindingId) ?? appFindings[0];
   const docFindings = selectedDoc ? appFindings.filter((finding) => finding.documentId === selectedDoc.id) : [];
   const visibleFindings = findingFilter === "high" ? appFindings.filter((finding) => finding.severity === "high") : appFindings;
-  const status = applicationStatus[appStatus] || applicationStatus[application.status];
-  const risk = riskLevel[appRisk] || riskLevel[application.risk];
+  const status = applicationStatus[appStatus] || applicationStatus[application.status] || { label: "In Review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" };
+  const risk = riskLevel[appRisk] || riskLevel[application.risk] || { label: "Medium", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" };
   const selectedDocStatus = selectedDoc ? documentStatus[selectedDoc.status] : null;
   const avgConfidence = selectedDoc?.extracted?.length
     ? selectedDoc.extracted.reduce((sum, field) => sum + field.confidence, 0) / selectedDoc.extracted.length
@@ -706,7 +706,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                 </div>
                 <div className="max-h-[550px] divide-y divide-line overflow-y-auto thin-scroll">
                   {visibleFindings.map((finding) => {
-                    const item = severity[finding.severity];
+                    const item = severity[finding.severity] || severity.high;
                     const isSelected = selectedFindingId === finding.id;
                     return (
                       <button

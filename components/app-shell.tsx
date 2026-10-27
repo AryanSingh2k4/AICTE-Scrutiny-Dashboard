@@ -344,7 +344,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
         <div className="flex items-center gap-4 border-t border-line bg-[#f7f4ed] px-4 py-2 text-[11px] text-muted">
           <span className="flex items-center gap-1.5"><Command className="h-3.5 w-3.5" /> K to open</span>
           <span>↑ ↓ to navigate</span>
-          <span className="ml-auto flex items-center gap-1.5"><BrandMark size={16} /> ScrutiniX · AY 2026–27</span>
+          <span className="ml-auto flex items-center gap-1.5"><BrandMark size={16} /> ScrutiniX | AY 2026–27</span>
         </div>
       </div>
     </div>

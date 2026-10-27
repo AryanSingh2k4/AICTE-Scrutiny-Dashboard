@@ -23,7 +23,10 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ScrutiniX · AICTE scrutiny suite",
+  title: {
+    default: "ScrutiniX | AICTE Scrutiny Suite",
+    template: "%s | ScrutiniX",
+  },
   description:
     "AICTE AI-powered application validation, document authentication and regulatory compliance verification. Decision-support only.",
   icons: {

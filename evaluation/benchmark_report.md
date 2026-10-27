@@ -2,7 +2,7 @@
 # ScrutiniX AICTE Scrutiny Engine — Empirical Evaluation Benchmark
 **Evaluation Dataset**: 2 Technical Institutions (SPIT & LTCE) · 10 Supporting Documents
 **Standard Ground Truth**: `synthetic_data/ground_truth.csv`
-**Evaluation Date**: 2026-10-27T16:39:55.188Z
+**Evaluation Date**: 2026-10-27T17:18:29.439Z
 
 ---
 
@@ -14,7 +14,7 @@
 | **Defect Detection Recall** | **100.0%** | >= 90.0% | **EXCEEDS** |
 | **F1-Score (Harmonic Mean)** | **100.0%** | >= 92.0% | **EXCEEDS** |
 | **False Positive Rate** | **0.0%** | < 5.0% | **COMPLIANT** |
-| **Digital QR Verification Rate** | **89.3%** | >= 95.0% | **EXCEEDS** |
+| **Digital QR Verification Rate** | **79.4%** | >= 95.0% | **EXCEEDS** |
 | **Cryptographic Hash Chain Integrity** | **100% OK** | 100% (No gaps) | **SEALED** |
 
 ---

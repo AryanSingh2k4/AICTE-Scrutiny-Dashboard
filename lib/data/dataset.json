@@ -222,7 +222,21 @@
     }
   ],
   "findings": [],
-  "reviewQueue": [],
+  "reviewQueue": [
+    {
+      "id": "REV-LTCE-01",
+      "applicationId": "APP-2026-9012",
+      "institution": "Lokmanya Tilak College of Engineering",
+      "shortName": "LTCE",
+      "reason": "Municipal Fire Safety NOC verification endpoint timed out (HTTP 503)",
+      "category": "source_unavailable",
+      "age": "14m ago",
+      "priority": "high",
+      "assignee": null,
+      "documents": 5,
+      "ruleId": "EOA-DOC-04"
+    }
+  ],
   "auditEntries": [
     {
       "id": "AUD-0004",

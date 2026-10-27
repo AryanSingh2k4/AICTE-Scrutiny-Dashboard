@@ -1,0 +1,310 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Anthropic Serif";
+  src: url("/fonts/AnthropicSerif.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --paper: #f2efe7;
+  --surface: #fbfaf6;
+  --ink: #1c231f;
+  --muted: #6d736c;
+  --line: #ded9cd;
+  --line-strong: #c9c2b3;
+  --pine: #1c5444;
+  --pine-deep: #143d32;
+  --pine-soft: #e3ece5;
+  --ochre: #98661c;
+  --ochre-soft: #f4e8d2;
+  --rust: #a24835;
+  --rust-soft: #f6e5df;
+  --slate: #3e5f72;
+  --slate-soft: #e6eef1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  content: "";
+  opacity: 0.22;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+::selection {
+  background: #cfdccd;
+  color: #143d32;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--pine);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cec7b8;
+  border: 3px solid transparent;
+  border-radius: 20px;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b2aa98;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+@layer components {
+  .display {
+    font-family: var(--font-display), "Anthropic Serif", Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.025em;
+    line-height: 0.98;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .mono {
+    font-family: var(--font-mono), "IBM Plex Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: 0 1px 0 rgba(27, 33, 30, 0.03), 0 12px 28px -26px rgba(27, 33, 30, 0.35);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 36px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+  }
+
+  .btn:active {
+    transform: translateY(0.5px);
+  }
+
+  .btn-primary {
+    background: var(--pine);
+    color: #f8f6f0;
+    border-color: var(--pine);
+  }
+  .btn-primary:hover {
+    background: var(--pine-deep);
+    border-color: var(--pine-deep);
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .btn-secondary:hover {
+    background: #f6f3eb;
+    border-color: #b8af9d;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+  }
+  .btn-ghost:hover {
+    background: #ece8de;
+    color: var(--ink);
+  }
+
+  .btn-danger {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: #fff9f6;
+  }
+  .btn-danger:hover {
+    background: #8d3a29;
+  }
+
+  .input {
+    height: 38px;
+    width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: var(--surface);
+    padding: 0 12px;
+    font-size: 13.5px;
+    color: var(--ink);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .input::placeholder {
+    color: #999b92;
+  }
+  .input:focus {
+    border-color: var(--pine);
+    box-shadow: 0 0 0 3px rgba(28, 84, 68, 0.09);
+    outline: none;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 25px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 0 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .nav-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 7px;
+    color: #666c65;
+    font-size: 13.5px;
+    font-weight: 500;
+    transition: color 140ms ease, background 140ms ease;
+  }
+  .nav-link:hover {
+    color: var(--ink);
+    background: #ede9df;
+  }
+  .nav-link[data-active="true"] {
+    color: var(--pine-deep);
+    background: #e4eae1;
+    font-weight: 600;
+  }
+  .nav-link[data-active="true"]::before {
+    position: absolute;
+    left: -11px;
+    top: 7px;
+    bottom: 7px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--pine);
+    content: "";
+  }
+
+  .row-hover {
+    transition: background 140ms ease;
+  }
+  .row-hover:hover {
+    background: #f7f4ed;
+  }
+
+  .rule {
+    border-top: 1px solid var(--line);
+  }
+
+  .doc-paper {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0)),
+      #fbf8ee;
+    box-shadow: 0 1px 2px rgba(52, 46, 35, 0.18), 0 18px 40px -22px rgba(52, 46, 35, 0.42);
+  }
+
+  .doc-serif {
+    font-family: var(--font-display), "Anthropic Serif", Georgia, "Times New Roman", serif;
+  }
+
+  .hatch {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgba(28, 84, 68, 0.075) 0,
+      rgba(28, 84, 68, 0.075) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(rgba(28, 35, 31, 0.16) 0.65px, transparent 0.65px);
+    background-size: 12px 12px;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .thin-scroll::-webkit-scrollbar {
+    width: 7px;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+/* Recharts polish */
+.recharts-cartesian-axis-tick-value {
+  font-size: 10px;
+  fill: #8b8f86;
+  font-family: var(--font-mono), monospace;
+}
+.recharts-tooltip-cursor {
+  fill: rgba(28, 84, 68, 0.04);
+}
+.recharts-surface {
+  overflow: visible;
+}

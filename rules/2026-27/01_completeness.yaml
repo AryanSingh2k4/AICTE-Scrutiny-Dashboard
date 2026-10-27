@@ -1,0 +1,64 @@
+# AICTE EoA Renewal 2026-27 Checklist: Completeness
+academic_year: "2026-27"
+category: "EoA Renewal"
+version: "1.4"
+rules:
+  - id: EOA-DOC-01
+    title: "Affidavit of Undertaking (Format 1) submitted"
+    group: "Completeness"
+    type: "required_document"
+    severity: "critical"
+    active: true
+    rule_spec:
+      document_type: "affidavit"
+      required: true
+      on_missing: "fail"
+      wording: "Mandatory statutory affidavit not found in application dossier"
+
+  - id: EOA-DOC-02
+    title: "Affiliating University / State Board NOC submitted"
+    group: "Completeness"
+    type: "required_document"
+    severity: "critical"
+    active: true
+    rule_spec:
+      document_type: "noc_university"
+      required: true
+      on_missing: "fail"
+      wording: "State board / affiliating university NOC not provided"
+
+  - id: EOA-DOC-03
+    title: "Accreditation certificate (NBA / NAAC) submitted"
+    group: "Completeness"
+    type: "required_document"
+    severity: "high"
+    active: true
+    rule_spec:
+      document_type: "accreditation_nba"
+      required: true
+      on_missing: "fail"
+      wording: "Accreditation certificate missing; mandatory for Tier-1 approved intake"
+
+  - id: EOA-DOC-04
+    title: "Competent Authority Fire Safety Certificate submitted"
+    group: "Completeness"
+    type: "required_document"
+    severity: "critical"
+    active: true
+    rule_spec:
+      document_type: "fire_safety"
+      required: true
+      on_missing: "fail"
+      wording: "Municipal Fire Services NOC missing from dossier"
+
+  - id: EOA-DOC-05
+    title: "Land ownership deed or lease agreement registered"
+    group: "Completeness"
+    type: "required_document"
+    severity: "high"
+    active: true
+    rule_spec:
+      document_type: "land_ownership"
+      required: true
+      on_missing: "review"
+      wording: "Revenue land registry title / registered lease deed missing"

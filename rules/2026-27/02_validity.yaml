@@ -1,0 +1,30 @@
+# AICTE EoA Renewal 2026-27 Checklist: Validity
+academic_year: "2026-27"
+category: "EoA Renewal"
+version: "1.4"
+rules:
+  - id: EOA-EXP-01
+    title: "Fire Safety Certificate validity extends through Academic Year"
+    group: "Validity"
+    type: "not_expired"
+    severity: "critical"
+    active: true
+    rule_spec:
+      document_type: "fire_safety"
+      date_field: "valid_to"
+      cutoff_date: "2026-06-30"
+      on_expired: "fail"
+      wording: "Fire Safety Certificate has expired or expires before the commencement of AY 2026-27"
+
+  - id: EOA-EXP-02
+    title: "NBA/NAAC Accreditation valid for proposed renewal term"
+    group: "Validity"
+    type: "not_expired"
+    severity: "high"
+    active: true
+    rule_spec:
+      document_type: "accreditation_nba"
+      date_field: "valid_to"
+      cutoff_date: "2026-06-30"
+      on_expired: "review"
+      wording: "Accreditation expired before renewal cycle; requires physical scrutiny or fee adjustment"

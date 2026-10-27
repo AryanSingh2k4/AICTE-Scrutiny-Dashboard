@@ -1,0 +1,43 @@
+# AICTE EoA Renewal 2026-27 Checklist: Statutory & Infrastructure Compliance
+academic_year: "2026-27"
+category: "EoA Renewal"
+version: "1.4"
+rules:
+  - id: EOA-TER-01
+    title: "TER (Technical Education Regulatory) Scrutiny Fee cleared"
+    group: "Compliance"
+    type: "ter_paid"
+    severity: "critical"
+    active: true
+    rule_spec:
+      source_table: "aicte_records"
+      source_field: "ter_payment_status"
+      accepted: ["paid", "exempt"]
+      on_pending: "fail"
+      wording: "TER processing fee payment not acknowledged or marked pending in central treasury records"
+
+  - id: EOA-DEF-01
+    title: "Zero unaddressed deficiency flags from previous AICTE inspection"
+    group: "Compliance"
+    type: "no_pending_deficiency"
+    severity: "critical"
+    active: true
+    rule_spec:
+      source_table: "aicte_records"
+      source_field: "deficiency_status"
+      expected: "Nil"
+      on_deficiency: "review"
+      wording: "Previous AICTE committee inspection flagged unrectified physical or academic deficiencies"
+
+  - id: EOA-INF-01
+    title: "Laboratory carpet area per student satisfies APH norms (Advisory)"
+    group: "Compliance"
+    type: "compliance_advisory"
+    severity: "low"
+    active: true
+    rule_spec:
+      advisory_only: true
+      norm_metric: "lab_area_sq_m_per_student"
+      minimum_threshold: 1.5
+      on_shortfall: "review"
+      advisory_note: "Reported laboratory floor area falls below 1.5 sq.m per approved intake student — recommendation for physical inspection"

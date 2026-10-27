@@ -2,28 +2,39 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import {
   ArrowRight,
   Building2,
   Check,
+  Copy,
   FileCheck2,
   Fingerprint,
+  GraduationCap,
   LockKeyhole,
   ScanLine,
   ShieldCheck,
   UserRoundCheck,
+  X,
 } from "lucide-react";
-import { systemUsers } from "@/lib/mock-data";
 import { cn } from "@/lib/display";
 import type { Role } from "@/lib/types";
 import { BrandMark, Logo } from "@/components/logo";
 
-const roleIcons = {
-  scrutiny_officer: ScanLine,
-  senior_officer: UserRoundCheck,
-  institution: Building2,
-  auditor: ShieldCheck,
-};
+const loginModes = [
+  {
+    id: "aicte" as const,
+    label: "AICTE Login",
+    sublabel: "Scrutiny Authority",
+    icon: ScanLine,
+  },
+  {
+    id: "college" as const,
+    label: "College Login",
+    sublabel: "Technical Institution",
+    icon: Building2,
+  },
+];
 
 function EvidenceVisual() {
   return (
@@ -111,15 +122,100 @@ function EvidenceVisual() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>("scrutiny_officer");
+  const [mode, setMode] = useState<"aicte" | "college">("aicte");
+  const [email, setEmail] = useState("officer@aicte.gov.in");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const selectedUser = systemUsers.find((user) => user.role === role) ?? systemUsers[0];
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  const copyText = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const autofillCredentials = (targetMode: "aicte" | "college", targetEmail: string, targetPass: string) => {
+    setMode(targetMode);
+    setEmail(targetEmail);
+    setPassword(targetPass);
+    setAuthError(null);
+    setGuideOpen(false);
+  };
+
+  const handleModeChange = (newMode: "aicte" | "college") => {
+    setMode(newMode);
+    setAuthError(null);
+    setPassword("");
+    if (newMode === "aicte") {
+      setEmail("officer@aicte.gov.in");
+    } else {
+      setEmail("");
+    }
+  };
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
-    window.localStorage.setItem("scrutinix-role", role);
-    window.setTimeout(() => router.push("/overview"), 450);
+    setAuthError(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password,
+      });
+
+      if (error) {
+        console.warn("Supabase auth notice:", error.message);
+        // Fallback demo verification
+        const isAicteDemo = cleanEmail === "officer@aicte.gov.in" && password === "AICTE";
+        const isSpitDemo = cleanEmail === "principal@sardarpatel.edu.in" && password === "sardarpatel";
+        const isLtceDemo = cleanEmail === "principal@ltce.in" && password === "ltce";
+
+        if (isAicteDemo) {
+          window.localStorage.setItem("scrutinix-role", "scrutiny_officer");
+          router.push("/overview");
+          return;
+        } else if (isSpitDemo || isLtceDemo) {
+          const college = isLtceDemo ? "ltce" : "sardarpatel";
+          window.localStorage.setItem("scrutinix-role", "institution");
+          window.localStorage.setItem("scrutinix-college", college);
+          router.push(`/institution?college=${college}`);
+          return;
+        }
+
+        setAuthError(error.message || "Invalid credentials. Please check your email and password.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (mode === "aicte" || cleanEmail.includes("aicte.gov.in")) {
+        window.localStorage.setItem("scrutinix-role", "scrutiny_officer");
+        router.push("/overview");
+      } else {
+        const meta = data?.user?.user_metadata || {};
+        let college = "sardarpatel";
+        if (
+          cleanEmail.includes("ltce") ||
+          meta.institution_id === "1-10358461" ||
+          meta.institution === "ltce"
+        ) {
+          college = "ltce";
+        }
+        window.localStorage.setItem("scrutinix-role", "institution");
+        window.localStorage.setItem("scrutinix-college", college);
+        router.push(`/institution?college=${college}`);
+      }
+    } catch (err: any) {
+      console.error("Sign-in exception:", err);
+      setAuthError(err?.message || "An unexpected error occurred during sign in.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -186,51 +282,94 @@ export default function LoginPage() {
           <div className="eyebrow">Sign in</div>
           <h2 className="display mt-1.5 text-[36px] leading-[1] xl:text-[38px]">Enter the scrutiny desk</h2>
           <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-            Select your designated role to enter the scrutiny workspace.
+            Select your designated portal role to enter the workspace.
           </p>
 
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            {systemUsers.map((user) => {
-              const Icon = roleIcons[user.role];
-              const active = role === user.role;
+          <div className="mt-5 grid grid-cols-2 gap-2.5">
+            {loginModes.map((m) => {
+              const Icon = m.icon;
+              const active = mode === m.id;
               return (
                 <button
-                  key={user.role}
+                  key={m.id}
                   type="button"
-                  onClick={() => setRole(user.role)}
+                  onClick={() => handleModeChange(m.id)}
                   className={cn(
-                    "group relative rounded-lg border px-3 py-2.5 text-left transition-all",
+                    "group relative flex flex-col justify-between rounded-xl border p-3 text-left transition-all",
                     active
-                      ? "border-pine bg-pine-soft/70 shadow-[inset_0_0_0_1px_rgba(28,84,68,.15)]"
+                      ? "border-pine bg-pine-soft/70 shadow-[inset_0_0_0_1px_rgba(28,84,68,.18)]"
                       : "border-line bg-surface hover:border-line-strong hover:bg-[#f8f5ed]",
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <Icon className={cn("h-3.5 w-3.5", active ? "text-pine" : "text-muted")} />
-                    <span className={cn("text-[10.5px] font-semibold", active ? "text-pine-deep" : "text-ink")}>{user.label}</span>
-                    {active ? <Check className="ml-auto h-3 w-3 text-pine" /> : null}
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-lg border",
+                        active ? "border-pine/30 bg-pine text-white" : "border-line bg-paper text-muted",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    {active ? (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-pine text-white">
+                        <Check className="h-2.5 w-2.5 stroke-[2.5]" />
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="mt-1 truncate text-[9px] leading-relaxed text-muted">{user.description}</div>
+                  <div className="mt-2.5">
+                    <div className={cn("text-[12.5px] font-semibold leading-tight", active ? "text-pine-deep" : "text-ink")}>
+                      {m.label}
+                    </div>
+                    <div className="mt-0.5 text-[9.5px] font-mono text-muted">{m.sublabel}</div>
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          <form onSubmit={handleSubmit} className="mt-5 space-y-3.5">
             <div>
-              <label htmlFor="email" className="mb-1 block text-[10px] font-semibold text-ink">Email</label>
-              <input id="email" className="input" value={selectedUser.email} readOnly />
-            </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label htmlFor="password" className="block text-[10px] font-semibold text-ink">Password</label>
-                <span className="text-[9px] text-muted">Authorized access</span>
-              </div>
-              <input id="password" type="password" className="input font-mono tracking-widest" value="scrutinix-aicte-2026" readOnly />
+              <label htmlFor="email" className="mb-1 block text-[10px] font-semibold text-ink">
+                {mode === "aicte" ? "Official AICTE Email" : "Institutional Email Address"}
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                className="input text-[12.5px]"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={mode === "aicte" ? "officer@aicte.gov.in" : "e.g. principal@college.edu.in"}
+              />
             </div>
 
-            <button type="submit" disabled={submitting} className="btn btn-primary mt-1.5 h-[42px] w-full justify-between px-4 text-[12px] disabled:opacity-70">
-              <span>{submitting ? "Opening workspace…" : `Continue as ${selectedUser.label.toLowerCase()}`}</span>
+            <div>
+              <label htmlFor="password" className="mb-1 block text-[10px] font-semibold text-ink">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                className="input tracking-wider text-[12.5px]"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+
+            {authError && (
+              <div className="rounded-lg border border-rust/30 bg-rust-soft/50 px-3 py-2 text-[11px] text-rust font-medium">
+                {authError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn btn-primary mt-2 h-[42px] w-full justify-between px-4 text-[12.5px] disabled:opacity-70"
+            >
+              <span>{submitting ? "Signing in…" : mode === "aicte" ? "Continue to Scrutiny Desk" : "Continue to College Portal"}</span>
               <ArrowRight className={cn("h-4 w-4 transition-transform", submitting ? "translate-x-1" : "group-hover:translate-x-0.5")} />
             </button>
           </form>
@@ -244,7 +383,16 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-3.5 flex items-center justify-between text-[9px] text-muted">
-            <span>Need help? <span className="cursor-pointer font-medium text-pine underline decoration-pine/30 underline-offset-2">Read the user guide</span></span>
+            <span>
+              Need help?{" "}
+              <button
+                type="button"
+                onClick={() => setGuideOpen(true)}
+                className="font-medium text-pine underline decoration-pine/30 underline-offset-2 hover:text-pine-deep"
+              >
+                Read login credentials & guide
+              </button>
+            </span>
             <span className="mono">VERIFIED WORKSPACE</span>
           </div>
         </div>
@@ -253,6 +401,162 @@ export default function LoginPage() {
           AICTE · All India Council for Technical Education · Internal prototype
         </div>
       </section>
+
+      {/* Login Credentials & Guide Modal */}
+      {guideOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-xs p-4 animate-fade-in">
+          <div className="relative w-full max-w-[520px] overflow-hidden rounded-xl border border-line-strong bg-surface shadow-lift animate-fade-up">
+            <div className="flex items-center justify-between border-b border-line px-5 py-3.5 bg-paper/60">
+              <div>
+                <h3 className="font-bold text-ink text-[14px]">How to Log In & Credentials</h3>
+                <p className="text-[11px] text-muted mt-0.5">Copy credentials or click autofill to test either portal</p>
+              </div>
+              <button
+                onClick={() => setGuideOpen(false)}
+                className="btn-ghost h-8 w-8 rounded-md flex items-center justify-center text-muted hover:text-ink"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3.5 max-h-[75vh] overflow-y-auto text-[12px]">
+              {/* Account 1 */}
+              <div className="rounded-lg border border-line bg-paper/40 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-ink">1. AICTE Scrutiny Officer</span>
+                    <span className="ml-2 chip border-pine/30 bg-pine-soft text-pine text-[9px]">Scrutiny Desk</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => autofillCredentials("aicte", "officer@aicte.gov.in", "AICTE")}
+                    className="btn btn-secondary h-7 px-2 text-[10.5px]"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 pt-1">
+                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
+                    <span className="truncate text-ink mr-2">officer@aicte.gov.in</span>
+                    <button
+                      type="button"
+                      onClick={() => copyText("aicte-email", "officer@aicte.gov.in")}
+                      className="text-muted hover:text-pine"
+                      title="Copy email"
+                    >
+                      {copiedKey === "aicte-email" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
+                    <span className="text-ink">AICTE</span>
+                    <button
+                      type="button"
+                      onClick={() => copyText("aicte-pass", "AICTE")}
+                      className="text-muted hover:text-pine"
+                      title="Copy password"
+                    >
+                      {copiedKey === "aicte-pass" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account 2 */}
+              <div className="rounded-lg border border-line bg-paper/40 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-ink">2. Sardar Patel Inst. of Tech</span>
+                    <span className="ml-2 chip border-pine/30 bg-pine-soft text-pine text-[9px]">PID: 1-3686579303</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => autofillCredentials("college", "principal@sardarpatel.edu.in", "sardarpatel")}
+                    className="btn btn-secondary h-7 px-2 text-[10.5px]"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 pt-1">
+                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
+                    <span className="truncate text-ink mr-2">principal@sardarpatel.edu.in</span>
+                    <button
+                      type="button"
+                      onClick={() => copyText("spit-email", "principal@sardarpatel.edu.in")}
+                      className="text-muted hover:text-pine"
+                      title="Copy email"
+                    >
+                      {copiedKey === "spit-email" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
+                    <span className="text-ink">sardarpatel</span>
+                    <button
+                      type="button"
+                      onClick={() => copyText("spit-pass", "sardarpatel")}
+                      className="text-muted hover:text-pine"
+                      title="Copy password"
+                    >
+                      {copiedKey === "spit-pass" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account 3 */}
+              <div className="rounded-lg border border-line bg-paper/40 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-ink">3. Lokmanya Tilak College (LTCE)</span>
+                    <span className="ml-2 chip border-pine/30 bg-pine-soft text-pine text-[9px]">PID: 1-10358461</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => autofillCredentials("college", "principal@ltce.in", "ltce")}
+                    className="btn btn-secondary h-7 px-2 text-[10.5px]"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 pt-1">
+                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
+                    <span className="truncate text-ink mr-2">principal@ltce.in</span>
+                    <button
+                      type="button"
+                      onClick={() => copyText("ltce-email", "principal@ltce.in")}
+                      className="text-muted hover:text-pine"
+                      title="Copy email"
+                    >
+                      {copiedKey === "ltce-email" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between rounded border border-line bg-surface px-2.5 py-1.5 font-mono text-[11px]">
+                    <span className="text-ink">ltce</span>
+                    <button
+                      type="button"
+                      onClick={() => copyText("ltce-pass", "ltce")}
+                      className="text-muted hover:text-pine"
+                      title="Copy password"
+                    >
+                      {copiedKey === "ltce-pass" ? <Check className="h-3.5 w-3.5 text-pine" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-line bg-paper/50 px-5 py-3">
+              <span className="text-[11px] text-muted">Click Auto-fill or copy credentials to proceed</span>
+              <button
+                type="button"
+                onClick={() => setGuideOpen(false)}
+                className="btn btn-primary h-8 px-3 text-[11.5px]"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

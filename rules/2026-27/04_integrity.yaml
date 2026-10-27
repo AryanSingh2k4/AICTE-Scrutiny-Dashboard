@@ -1,0 +1,39 @@
+# AICTE EoA Renewal 2026-27 Checklist: Document Integrity & Forensic Indicators
+academic_year: "2026-27"
+category: "EoA Renewal"
+version: "1.4"
+rules:
+  - id: EOA-DUP-01
+    title: "Document content hash (SHA-256) is unique across all institutions"
+    group: "Integrity"
+    type: "exact_duplicate"
+    severity: "critical"
+    active: true
+    rule_spec:
+      scope: "all_institutions"
+      algorithm: "sha256"
+      on_duplicate: "review"
+      advisory_note: "Identical document hash detected across distinct institution applications — potential reuse"
+
+  - id: EOA-META-01
+    title: "PDF metadata creation timestamp precedes or matches stated certificate issue date"
+    group: "Integrity"
+    type: "metadata_consistency"
+    severity: "medium"
+    active: true
+    rule_spec:
+      check: "creation_date_lte_issue_date"
+      tolerance_hours: 48
+      on_inconsistency: "review"
+      advisory_note: "PDF internal creation metadata postdates stated legal execution date by more than 48 hours"
+
+  - id: EOA-ALT-01
+    title: "Error Level Analysis (ELA) variance within clean baseline"
+    group: "Integrity"
+    type: "image_tamper_ela"
+    severity: "high"
+    active: true
+    rule_spec:
+      max_variance_threshold: 0.78
+      on_anomaly: "review"
+      advisory_note: "Possible localized digital alteration detected via Error Level Analysis — requires human inspection"

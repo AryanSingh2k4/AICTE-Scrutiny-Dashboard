@@ -1,0 +1,34 @@
+# AICTE EoA Renewal 2026-27 Checklist: Cross-Document & Portal Consistency
+academic_year: "2026-27"
+category: "EoA Renewal"
+version: "1.4"
+rules:
+  - id: EOA-XDOC-01
+    title: "Institution Name matches consistently across all uploaded documents"
+    group: "Consistency"
+    type: "field_match_across_documents"
+    severity: "medium"
+    active: true
+    rule_spec:
+      field: "institution_name"
+      fuzzy_algorithm: "levenshtein_similarity"
+      threshold: 0.92
+      normalizers:
+        - "lowercase"
+        - "remove_punctuation"
+        - "expand_abbreviations"
+      on_mismatch: "review"
+      wording: "Discrepancy detected in institution naming across submitted legal documents"
+
+  - id: EOA-AIC-01
+    title: "Institution Name matches AICTE Central Portal record"
+    group: "Records"
+    type: "field_match_aicte_record"
+    severity: "high"
+    active: true
+    rule_spec:
+      document_field: "institution_name"
+      record_field: "name"
+      threshold: 0.90
+      on_mismatch: "review"
+      wording: "Submitted document institution name deviates from central AICTE portal master record"

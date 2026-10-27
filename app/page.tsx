@@ -27,7 +27,7 @@ const roleIcons = {
 
 function EvidenceVisual() {
   return (
-    <div className="relative h-[275px] w-[345px] select-none xl:h-[295px] xl:w-[380px]">
+    <div className="relative h-[275px] w-[345px] select-none scale-[1.15] xl:scale-[1.20] 2xl:scale-[1.24] origin-left">
       {/* Background document */}
       <div className="absolute left-[4%] top-[6%] h-[215px] w-[265px] rotate-[-7deg] rounded-[3px] border border-[#d6cfbe] bg-[#f9f5e9] shadow-paper">
         <div className="space-y-2 p-5 opacity-55">
@@ -90,7 +90,7 @@ function EvidenceVisual() {
       </div>
 
       {/* Verified badge: QR source verified */}
-      <div className="absolute -left-1 bottom-[13%] flex w-[156px] items-center gap-2 rounded-md border border-[#cfc8b8] bg-[#fbfaf4] px-2.5 py-1.5 shadow-card animate-fade-up [animation-delay:440ms]">
+      <div className="absolute left-[9%] bottom-[13%] flex w-[156px] items-center gap-2 rounded-md border border-[#cfc8b8] bg-[#fbfaf4] px-2.5 py-1.5 shadow-card animate-fade-up [animation-delay:440ms]">
         <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-pine-soft text-pine">
           <Check className="h-3 w-3" />
         </span>
@@ -101,7 +101,7 @@ function EvidenceVisual() {
       </div>
 
       {/* Bottom pill: Human decision required */}
-      <div className="absolute -bottom-1 left-[20%] flex items-center gap-1.5 rounded-full border border-[#d2c9b7] bg-[#f8f4e9]/95 px-2.5 py-1 text-[7.5px] font-medium text-[#716b5d] shadow-card backdrop-blur-sm">
+      <div className="absolute -bottom-1 left-[22%] flex items-center gap-1.5 rounded-full border border-[#d2c9b7] bg-[#f8f4e9]/95 px-2.5 py-1 text-[7.5px] font-medium text-[#716b5d] shadow-card backdrop-blur-sm">
         <LockKeyhole className="h-2.5 w-2.5" />
         Human decision required · audit logged
       </div>

@@ -8,103 +8,141 @@ import type {
   RuleRecord,
   VerificationRecord,
 } from "./types";
+import dataset from "./data/dataset.json";
 
 export const systemUsers = [
   {
     role: "scrutiny_officer" as const,
     label: "Scrutiny officer",
-    name: "Ananya Menon",
-    email: "ananya.menon@aicte.gov.in",
+    name: "Dr. Ananya Menon",
+    email: "officer@aicte.gov.in",
     initials: "AM",
     description: "Validate applications, review findings and request clarification.",
   },
   {
     role: "senior_officer" as const,
     label: "Senior officer",
-    name: "Vikram Sethi",
-    email: "vikram.sethi@aicte.gov.in",
+    name: "Dr. Vikram Sharma",
+    email: "vikram.sharma@aicte.gov.in",
     initials: "VS",
     description: "Review escalated cases and record final outcomes.",
   },
   {
     role: "institution" as const,
     label: "Institution",
-    name: "Technical Institute Portal",
-    email: "registrar@institution.edu.in",
-    initials: "TI",
+    name: "Sardar Patel Institute of Technology",
+    email: "principal@sardarpatel.edu.in",
+    initials: "SP",
+    description: "Submit documents, track progress and respond to clarifications.",
+  },
+  {
+    role: "institution" as const,
+    label: "Institution",
+    name: "Lokmanya Tilak College of Engineering",
+    email: "principal@ltce.in",
+    initials: "LT",
     description: "Submit documents, track progress and respond to clarifications.",
   },
   {
     role: "auditor" as const,
     label: "Auditor",
-    name: "Meera Rao",
-    email: "meera.rao@audit.gov.in",
-    initials: "MR",
+    name: "K. Subramanian",
+    email: "k.subramanian@cag.gov.in",
+    initials: "KS",
     description: "Read-only access to applications, decisions and the audit trail.",
   },
 ];
 
-export const applications: Application[] = [];
+export const applications: Application[] = dataset.applications as Application[];
 
-export const focusApplication: Application | null = null;
+export const focusApplication: Application | null = applications[0] || null;
 
-export const dashboardMetrics = [
-  {
-    label: "Active applications",
-    value: "0",
-    delta: "0",
-    detail: "awaiting submissions",
-    tone: "neutral" as const,
-    series: [0, 0, 0, 0, 0, 0, 0],
-  },
-  {
-    label: "Needs human review",
-    value: "0",
-    delta: "0 high",
-    detail: "queue clear",
-    tone: "ochre" as const,
-    series: [0, 0, 0, 0, 0, 0, 0],
-  },
-  {
-    label: "Possible anomalies",
-    value: "0",
-    delta: "0",
-    detail: "no flags raised",
-    tone: "rust" as const,
-    series: [0, 0, 0, 0, 0, 0, 0],
-  },
-  {
-    label: "Median scrutiny time",
-    value: "—",
-    delta: "0%",
-    detail: "no runs yet",
-    tone: "pine" as const,
-    series: [0, 0, 0, 0, 0, 0, 0],
-  },
-];
+export const dashboardMetrics = dataset.dashboardMetrics as Array<{
+  label: string;
+  value: string;
+  delta: string;
+  detail: string;
+  tone: "pine" | "ochre" | "rust" | "neutral";
+  series: number[];
+}>;
 
-export const throughputData: Array<{ day: string; validated: number; manual: number }> = [];
+export const throughputData: Array<{ day: string; validated: number; manual: number }> = dataset.throughputData;
 
-export const signalData: Array<{ label: string; count: number; tone: string }> = [];
+export const signalData: Array<{ label: string; count: number; tone: string }> = dataset.signalData;
 
 export const activityFeed: Array<{
   title: string;
   meta: string;
   time: string;
   tone: "rust" | "ochre" | "slate" | "pine";
-}> = [];
+}> = dataset.activityFeed as any;
 
-export const documents: DocumentRecord[] = [];
+export const documents: DocumentRecord[] = dataset.documents as DocumentRecord[];
 
-export const findings: Finding[] = [];
+export const findings: Finding[] = dataset.findings as Finding[];
 
-export const verifications: VerificationRecord[] = [];
+export const verifications: VerificationRecord[] = [
+  {
+    documentId: "DOC-APP-2026-8941-NOC",
+    adapter: "State Technical Board / University (QR)",
+    status: "verified",
+    source: "https://stateuniv.edu.in/verify?doc=NOC/MAH/2026/9935",
+    checkedAt: "27 Oct 2026, 11:01 IST",
+    reference: "NOC/MAH/2026/9935",
+    detail: "QR code digital signature verified with State Technical University root cert. Intake: 360.",
+  },
+  {
+    documentId: "DOC-APP-2026-8941-ACC",
+    adapter: "NBA / NAAC Accreditation Registry",
+    status: "verified",
+    source: "https://nbaind.org/api/v1/accreditation/check",
+    checkedAt: "27 Oct 2026, 11:01 IST",
+    reference: "NBA/2026/MAH-ENG-3686",
+    detail: "Accreditation status active (Tier-1) through 30 June 2028.",
+  },
+  {
+    documentId: "DOC-APP-2026-9012-NOC",
+    adapter: "State Technical Board / University (QR)",
+    status: "verified",
+    source: "https://stateuniv.edu.in/verify?doc=NOC/MAH/2026/8102",
+    checkedAt: "27 Oct 2026, 11:15 IST",
+    reference: "NOC/MAH/2026/8102",
+    detail: "QR signature confirmed with University of Mumbai. Approved Intake: 360.",
+  },
+  {
+    documentId: "DOC-APP-2026-9012-ACC",
+    adapter: "NBA / NAAC Accreditation Registry",
+    status: "verified",
+    source: "https://nbaind.org/api/v1/accreditation/check",
+    checkedAt: "27 Oct 2026, 11:15 IST",
+    reference: "NBA/2026/MAH-ENG-1035",
+    detail: "Accreditation valid (Tier-II) through 30 June 2028.",
+  },
+  {
+    documentId: "DOC-APP-2026-8951-NOC",
+    adapter: "State Technical Board / University (QR)",
+    status: "source_unavailable",
+    source: "https://stateuniv.edu.in/verify?doc=NOC/TEL/2026/4770",
+    checkedAt: "27 Oct 2026, 11:01 IST",
+    reference: "NOC/TEL/2026/4770",
+    detail: "HTTP 503 gateway timeout after 5000ms. Routed to manual verification queue.",
+  },
+  {
+    documentId: "DOC-APP-2026-8942-ACC",
+    adapter: "NBA / NAAC Accreditation Registry",
+    status: "expired",
+    source: "https://nbaind.org/api/v1/accreditation/check",
+    checkedAt: "27 Oct 2026, 11:01 IST",
+    reference: "NBA/2024/MAH-ENG-3542",
+    detail: "Record indicates accreditation expired on 30 June 2025. Does not cover AY 2026-27.",
+  },
+];
 
-export const reviewQueue: ReviewItem[] = [];
+export const reviewQueue: ReviewItem[] = dataset.reviewQueue as ReviewItem[];
 
-export const queueCards: QueueCard[] = [];
+export const queueCards: QueueCard[] = dataset.reviewQueue as any;
 
-export const auditEntries: AuditEntry[] = [];
+export const auditEntries: AuditEntry[] = dataset.auditEntries as unknown as AuditEntry[];
 
 export const rules: RuleRecord[] = [
   {

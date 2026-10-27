@@ -75,7 +75,7 @@ export default function OverviewPage() {
 
       <div className="card mt-6 grid grid-cols-2 overflow-hidden lg:grid-cols-4">
         {dashboardMetrics.map((metric, index) => {
-          const tone = toneMap[metric.tone];
+          const tone = toneMap[metric.tone as keyof typeof toneMap] || toneMap.neutral;
           return (
             <div
               key={metric.label}

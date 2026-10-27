@@ -76,9 +76,9 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-function ValidationReport({ application, onRerun, rerunning }: { application: Application; onRerun: () => void; rerunning: boolean }) {
+function ValidationReport({ application, appFindings, onRerun, rerunning }: { application: Application; appFindings: Finding[]; onRerun: () => void; rerunning: boolean }) {
   const ruleResults = rules.map((rule) => {
-    const finding = findings.find((item) => item.ruleId === rule.id);
+    const finding = appFindings.find((item) => item.ruleId === rule.id);
     return { ...rule, finding };
   });
   const fails = ruleResults.filter((rule) => rule.finding).length;
@@ -310,8 +310,16 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
     );
   }
 
-  const [selectedDocId, setSelectedDocId] = useState(documents[0]?.id ?? "");
-  const [selectedFindingId, setSelectedFindingId] = useState(findings[0]?.id ?? "");
+  const appDocs = useMemo(() => {
+    return documents.filter((doc) => doc.id.includes(application.id));
+  }, [application.id]);
+
+  const appFindings = useMemo(() => {
+    return findings.filter((finding) => appDocs.some((d) => d.id === finding.documentId) || finding.documentId === application.id);
+  }, [application.id, appDocs]);
+
+  const [selectedDocId, setSelectedDocId] = useState(appDocs[0]?.id ?? "");
+  const [selectedFindingId, setSelectedFindingId] = useState(appFindings[0]?.id ?? "");
   const [showOverlay, setShowOverlay] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [rightTab, setRightTab] = useState<"findings" | "verification">("findings");
@@ -325,10 +333,9 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
   const [toast, setToast] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
 
-  const selectedDoc = documents.find((doc) => doc.id === selectedDocId) ?? documents[0];
-  const selectedFinding = findings.find((finding) => finding.id === selectedFindingId);
-  const docFindings = selectedDoc ? findings.filter((finding) => finding.documentId === selectedDoc.id) : [];
-  const appFindings = findings;
+  const selectedDoc = appDocs.find((doc) => doc.id === selectedDocId) ?? appDocs[0];
+  const selectedFinding = appFindings.find((finding) => finding.id === selectedFindingId) ?? appFindings[0];
+  const docFindings = selectedDoc ? appFindings.filter((finding) => finding.documentId === selectedDoc.id) : [];
   const visibleFindings = findingFilter === "high" ? appFindings.filter((finding) => finding.severity === "high") : appFindings;
   const status = applicationStatus[application.status];
   const risk = riskLevel[application.risk];
@@ -448,7 +455,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
               <button className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-paper" aria-label="File actions"><MoreHorizontal className="h-3.5 w-3.5" /></button>
             </div>
             <div className="p-2">
-              {documents.map((doc) => {
+              {appDocs.map((doc) => {
                 const docStatus = documentStatus[doc.status];
                 const Icon = docIcons[doc.type as keyof typeof docIcons] ?? FileText;
                 const active = selectedDoc.id === doc.id;
@@ -687,7 +694,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
           </aside>
         </div>
       ) : activeTab === "report" ? (
-        <ValidationReport application={application} onRerun={rerun} rerunning={rerunning} />
+        <ValidationReport application={application} appFindings={appFindings} onRerun={rerun} rerunning={rerunning} />
       ) : (
         <AuditScope application={application} />
       )}

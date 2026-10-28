@@ -9,7 +9,6 @@ import {
   Check,
   FileCheck2,
   Fingerprint,
-  GraduationCap,
   LockKeyhole,
   ScanLine,
   ShieldCheck,

@@ -150,18 +150,3 @@ export interface RuleRecord {
   failures: number;
   yaml: string;
 }
-
-export interface QueueCard {
-  id: string;
-  applicationId: string;
-  institution: string;
-  shortName: string;
-  reason: string;
-  category: string;
-  age: string;
-  priority: "urgent" | "high" | "normal";
-  assignee: string | null;
-  ruleId: string;
-  confidence: number;
-  evidence: string;
-}

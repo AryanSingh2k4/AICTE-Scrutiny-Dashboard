@@ -3,59 +3,13 @@ import type {
   AuditEntry,
   DocumentRecord,
   Finding,
-  QueueCard,
   ReviewItem,
   RuleRecord,
   VerificationRecord,
 } from "./types";
 import dataset from "./data/dataset.json";
 
-export const systemUsers = [
-  {
-    role: "scrutiny_officer" as const,
-    label: "Scrutiny officer",
-    name: "Dr. Ananya Menon",
-    email: "officer@aicte.gov.in",
-    initials: "AM",
-    description: "Validate applications, review findings and request clarification.",
-  },
-  {
-    role: "senior_officer" as const,
-    label: "Senior officer",
-    name: "Dr. Vikram Sharma",
-    email: "vikram.sharma@aicte.gov.in",
-    initials: "VS",
-    description: "Review escalated cases and record final outcomes.",
-  },
-  {
-    role: "institution" as const,
-    label: "Institution",
-    name: "Sardar Patel Institute of Technology",
-    email: "principal@sardarpatel.edu.in",
-    initials: "SP",
-    description: "Submit documents, track progress and respond to clarifications.",
-  },
-  {
-    role: "institution" as const,
-    label: "Institution",
-    name: "Lokmanya Tilak College of Engineering",
-    email: "principal@ltce.in",
-    initials: "LT",
-    description: "Submit documents, track progress and respond to clarifications.",
-  },
-  {
-    role: "auditor" as const,
-    label: "Auditor",
-    name: "K. Subramanian",
-    email: "k.subramanian@cag.gov.in",
-    initials: "KS",
-    description: "Read-only access to applications, decisions and the audit trail.",
-  },
-];
-
 export const applications: Application[] = dataset.applications as Application[];
-
-export const focusApplication: Application | null = applications[0] || null;
 
 export const dashboardMetrics = dataset.dashboardMetrics as Array<{
   label: string;
@@ -139,8 +93,6 @@ export const verifications: VerificationRecord[] = [
 ];
 
 export const reviewQueue: ReviewItem[] = dataset.reviewQueue as ReviewItem[];
-
-export const queueCards: QueueCard[] = dataset.reviewQueue as any;
 
 export const auditEntries: AuditEntry[] = dataset.auditEntries as unknown as AuditEntry[];
 
@@ -411,31 +363,6 @@ export const ruleGroups = [
   "Integrity",
   "Compliance",
   "Verification",
-];
-
-export const extractedFieldSummary: Array<{
-  field: string;
-  value: string;
-  confidence: number;
-  document: string;
-}> = [];
-
-export const submissionChecklist = [
-  { type: "Affidavit of undertaking", required: true, status: "missing", size: "—", detail: "Not uploaded" },
-  { type: "No objection certificate", required: true, status: "missing", size: "—", detail: "Not uploaded" },
-  { type: "NBA / NAAC certificate", required: true, status: "missing", size: "—", detail: "Not uploaded" },
-  { type: "Fire safety certificate", required: true, status: "missing", size: "—", detail: "Not uploaded" },
-  { type: "Land & ownership document", required: true, status: "missing", size: "—", detail: "Not uploaded" },
-  { type: "Trust registration deed", required: false, status: "missing", size: "—", detail: "Not uploaded" },
-];
-
-export const uploadSteps = [
-  { key: "hash", label: "SHA-256 fingerprint", detail: "Recomputed from stored object" },
-  { key: "extract", label: "Text extraction", detail: "Detect and extract text layer" },
-  { key: "classify", label: "Document classification", detail: "Classify document type" },
-  { key: "fields", label: "Field extraction", detail: "Extract entity fields with confidence" },
-  { key: "validate", label: "Checklist validation", detail: "Evaluate against active rules" },
-  { key: "verify", label: "Issuer verification", detail: "Query authority verification adapter" },
 ];
 
 export const sourceHealth: Array<{

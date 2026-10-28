@@ -4,15 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import {
-  ArrowRight,
-  ArrowUpRight,
   Bell,
   Building2,
   Check,
   ChevronRight,
-  CircleAlert,
   Command,
-  FileCheck2,
   FileStack,
   HelpCircle,
   Inbox,

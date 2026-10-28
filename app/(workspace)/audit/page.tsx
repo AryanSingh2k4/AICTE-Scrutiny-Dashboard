@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  ArrowRight,
   Check,
   CheckCircle2,
   ChevronRight,

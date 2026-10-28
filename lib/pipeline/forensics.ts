@@ -7,7 +7,7 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { getServerSupabase } from "@/lib/supabase/server";
 
-export interface MatchedDuplicateDoc {
+interface MatchedDuplicateDoc {
   id: string;
   application_id: string;
   institution_id: string;
@@ -37,7 +37,7 @@ export interface PdfMetadataAndDatesResult {
   metadata: Record<string, any>;
 }
 
-export interface BoundingBox {
+interface BoundingBox {
   x: number;
   y: number;
   w: number;
@@ -206,7 +206,7 @@ export async function checkCrossInstitutionDuplicate(
 /**
  * Helper: Parse PDF Date format D:YYYYMMDDHHmmSS[+|-]HH'mm' into ISO 8601 string
  */
-export function parsePdfDateString(pdfDateStr?: string): string | null {
+function parsePdfDateString(pdfDateStr?: string): string | null {
   if (!pdfDateStr) return null;
   const cleaned = pdfDateStr.replace(/^D:/, "").replace(/'/g, "");
   const m = cleaned.match(/^(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?([+\-Z])?(\d{2})?(\d{2})?/);
@@ -234,7 +234,7 @@ const MONTH_MAP: Record<string, string> = {
   nov: "11", november: "11", dec: "12", december: "12",
 };
 
-export function normalizeDateString(raw?: string): string | undefined {
+function normalizeDateString(raw?: string): string | undefined {
   if (!raw) return undefined;
 
   // Format: "12th day of April 2026"

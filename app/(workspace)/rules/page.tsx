@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight,
   Check,
   ChevronRight,
   CircleAlert,
-  Clock3,
   Code2,
   FileCode2,
   GitBranch,
@@ -18,7 +16,6 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   X,
 } from "lucide-react";
 import { applications, rules, ruleGroups } from "@/lib/mock-data";

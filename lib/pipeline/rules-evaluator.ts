@@ -3,10 +3,10 @@
 // Academic Year 2026–27 | Strictly Advisory Decision-Support
 // ==============================================================================
 
-export type RuleStatus = "PASS" | "FAIL" | "REVIEW";
-export type RuleSeverity = "low" | "medium" | "high" | "critical";
+type RuleStatus = "PASS" | "FAIL" | "REVIEW";
+type RuleSeverity = "low" | "medium" | "high" | "critical";
 
-export interface RuleSpec {
+interface RuleSpec {
   [key: string]: any;
 }
 

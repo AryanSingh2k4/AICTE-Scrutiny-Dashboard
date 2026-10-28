@@ -62,16 +62,6 @@ export const reviewCategory: Record<string, string> = {
   extraction: "Extraction quality",
 };
 
-export function initials(name: string) {
-  return name
-    .split(" ")
-    .filter((part) => part.length > 0)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
-
 export function percent(value: number) {
   return `${Math.round(value * 100)}%`;
 }

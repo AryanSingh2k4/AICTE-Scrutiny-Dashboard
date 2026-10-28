@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  ArrowRight,
   ArrowUpRight,
   Check,
   ChevronRight,
-  CircleAlert,
   Clock3,
   Filter,
-  Inbox,
   RefreshCw,
   Search,
   ShieldCheck,

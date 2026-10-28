@@ -105,17 +105,3 @@ export function MonoTag({ children, className }: { children: ReactNode; classNam
     <span className={cn("mono rounded border border-line bg-[#f5f2e9] px-2 py-0.5 text-[11px] text-muted", className)}>{children}</span>
   );
 }
-
-export function EmptyState({ title, description, icon }: { title: string; description: string; icon?: ReactNode }) {
-  return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      {icon ? <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper text-muted">{icon}</div> : null}
-      <div className="text-[14px] font-semibold text-ink">{title}</div>
-      <p className="mt-1 max-w-[340px] text-[12px] leading-relaxed text-muted">{description}</p>
-    </div>
-  );
-}
-
-export function Divider() {
-  return <div className="h-px w-full bg-line" />;
-}

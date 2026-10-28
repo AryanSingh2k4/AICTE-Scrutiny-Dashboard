@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Check,
   CheckCircle2,
@@ -23,6 +23,8 @@ import {
 import { auditEntries } from "@/lib/mock-data";
 import { cn } from "@/lib/display";
 import { PageHeader, SectionHeading } from "@/components/ui";
+import { createClient } from "@/lib/supabase/client";
+import type { AuditEntry } from "@/lib/types";
 
 const actionFilters = [
   { value: "all", label: "All events" },
@@ -36,6 +38,7 @@ const actionFilters = [
 export default function AuditPage() {
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
+  const [entries, setEntries] = useState<AuditEntry[]>(auditEntries);
   const [selectedId, setSelectedId] = useState(auditEntries[0]?.id ?? "");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -48,16 +51,48 @@ export default function AuditPage() {
   } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const selected = auditEntries.find((entry) => entry.id === selectedId) ?? auditEntries[0] ?? null;
+  useEffect(() => {
+    async function fetchLiveAudit() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("audit_log")
+          .select("*")
+          .order("sequence_number", { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const mapped: AuditEntry[] = data.map((row: any) => ({
+            id: `LOG-${String(row.sequence_number).padStart(5, "0")}`,
+            sequence: row.sequence_number,
+            action: row.action,
+            actor: row.actor,
+            actorRole: row.actor_role,
+            entity: `${row.entity}:${row.entity_id}`,
+            timestamp: new Date(row.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+            hash: row.current_hash,
+            previousHash: row.prev_hash,
+            payload: row.payload || {},
+          }));
+          setEntries(mapped);
+          setSelectedId(mapped[0]?.id ?? "");
+        }
+      } catch (err) {
+        console.error("Failed to load live audit entries from Supabase:", err);
+      }
+    }
+    fetchLiveAudit();
+  }, []);
+
+  const selected = entries.find((entry) => entry.id === selectedId) ?? entries[0] ?? null;
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
-    return auditEntries.filter((entry) => {
+    return entries.filter((entry) => {
       if (actionFilter !== "all" && entry.action !== actionFilter) return false;
       if (normalized && !`${entry.action} ${entry.actor} ${entry.entity} ${entry.id}`.toLowerCase().includes(normalized)) return false;
       return true;
     });
-  }, [actionFilter, query]);
+  }, [actionFilter, entries, query]);
 
   async function verifyChain() {
     setVerifying(true);
@@ -73,13 +108,13 @@ export default function AuditPage() {
       console.error("Chain verification error:", err);
       setVerifyResult({
         status: "ok",
-        total_entries: auditEntries.length,
+        total_entries: entries.length,
         first_broken_id: null,
         verified_at: new Date().toISOString(),
         algorithm: "SHA-256 Hash Chain",
       });
       setVerified(true);
-      setToast(`Chain integrity verified: ${auditEntries.length} entries checked. Broken ID: none.`);
+      setToast(`Chain integrity verified: ${entries.length} entries checked. Broken ID: none.`);
     } finally {
       setVerifying(false);
     }
@@ -95,7 +130,7 @@ export default function AuditPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow={`Append-only · SHA-256 hash chain · ${auditEntries.length} entries`}
+        eyebrow={`Append-only · SHA-256 hash chain · ${entries.length} entries`}
         title="Audit trail"
         description="A verifiable record of every rule applied, record read, source response, document view and human decision."
         actions={
@@ -111,9 +146,9 @@ export default function AuditPage() {
 
       <div className="card mt-6 grid grid-cols-2 divide-x divide-y divide-line overflow-hidden lg:grid-cols-4 lg:divide-y-0">
         {[
-          { label: "Chain status", value: auditEntries.length > 0 ? "Intact" : "Ready", detail: "cryptographic verification", tone: "text-pine", icon: ShieldCheck },
-          { label: "Entries sealed", value: String(auditEntries.length), detail: "append-only log", tone: "text-ink", icon: LockKeyhole },
-          { label: "Last sealed", value: auditEntries.length > 0 ? auditEntries[0].timestamp : "—", detail: "timestamped", tone: "text-ink", icon: Clock3 },
+          { label: "Chain status", value: entries.length > 0 ? "Intact" : "Ready", detail: "cryptographic verification", tone: "text-pine", icon: ShieldCheck },
+          { label: "Entries sealed", value: String(entries.length), detail: "append-only log", tone: "text-ink", icon: LockKeyhole },
+          { label: "Last sealed", value: entries.length > 0 ? entries[0].timestamp : "—", detail: "timestamped", tone: "text-ink", icon: Clock3 },
           { label: "Hash algorithm", value: "SHA-256", detail: "prev_hash + canonical JSON", tone: "text-ink", icon: Fingerprint },
         ].map((item) => {
           const Icon = item.icon;
@@ -132,7 +167,7 @@ export default function AuditPage() {
           <CheckCircle2 className="h-4 w-4" />
           <span className="font-semibold">Chain integrity verified via Supabase RPC.</span>
           <span className="text-[12.5px]">
-            All {verifyResult?.total_entries ?? auditEntries.length} entries verified via {verifyResult?.algorithm ?? "SHA-256 Hash Chain"}. Broken ID: {verifyResult?.first_broken_id || "none"} · Status: {verifyResult?.status || "ok"}.
+            All {verifyResult?.total_entries ?? entries.length} entries verified via {verifyResult?.algorithm ?? "SHA-256 Hash Chain"}. Broken ID: {verifyResult?.first_broken_id || "none"} · Status: {verifyResult?.status || "ok"}.
           </span>
           <span className="mono ml-auto text-[11px]">
             {verifyResult?.verified_at ? new Date(verifyResult.verified_at).toLocaleTimeString("en-IN") + " IST" : "verified"}
@@ -150,7 +185,7 @@ export default function AuditPage() {
             <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)} className="h-9 rounded-md border border-line bg-surface px-2.5 text-[12.5px] font-medium text-ink outline-none">
               {actionFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
             </select>
-            <span className="mono text-[11.5px] text-muted">{filtered.length} of {auditEntries.length} shown</span>
+            <span className="mono text-[11.5px] text-muted">{filtered.length} of {entries.length} shown</span>
           </div>
 
           <div className="overflow-x-auto">

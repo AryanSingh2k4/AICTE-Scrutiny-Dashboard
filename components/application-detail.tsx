@@ -370,7 +370,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                 label: dbDoc.document_type || dbDoc.file_name,
                 fileName: dbDoc.file_name,
                 pages: dbDoc.page_count || 1,
-                status: "attention" as DocumentStatus,
+                status: "manual_review" as DocumentStatus,
                 issuer: "Uploaded Institution Dossier",
                 reference: dbDoc.sha256_hash?.slice(0, 16) || "N/A",
                 hash: dbDoc.sha256_hash || "",
@@ -443,7 +443,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
   const visibleFindings = findingFilter === "high" ? appFindings.filter((finding) => finding.severity === "high") : appFindings;
   const status = applicationStatus[appStatus] || applicationStatus[application.status] || { label: "In Review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" };
   const risk = riskLevel[appRisk] || riskLevel[application.risk] || { label: "Medium", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" };
-  const selectedDocStatus = selectedDoc ? documentStatus[selectedDoc.status] : null;
+  const selectedDocStatus = selectedDoc ? (documentStatus[selectedDoc.status] || documentStatus.manual_review) : null;
   const avgConfidence = selectedDoc?.extracted?.length
     ? selectedDoc.extracted.reduce((sum, field) => sum + field.confidence, 0) / selectedDoc.extracted.length
     : 0;
@@ -623,7 +623,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
             </div>
             <div className="p-2">
               {appDocs.map((doc) => {
-                const docStatus = documentStatus[doc.status];
+                const docStatus = documentStatus[doc.status] || documentStatus.manual_review || { label: "Review", className: "bg-slate-soft text-slate", dot: "bg-slate" };
                 const Icon = docIcons[doc.type as keyof typeof docIcons] ?? FileText;
                 const active = selectedDoc.id === doc.id;
                 return (
@@ -660,7 +660,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
               <div className="mt-3 space-y-2">
                 {verifications.slice(0, 4).map((item) => {
                   const doc = documents.find((document) => document.id === item.documentId);
-                  const statusItem = verificationStatus[item.status];
+                  const statusItem = verificationStatus[item.status] || verificationStatus.verification_pending || { label: "Pending", className: "bg-slate-soft text-slate", dot: "bg-slate" };
                   return (
                     <button key={item.documentId} onClick={() => setSelectedDocId(item.documentId)} className="flex w-full items-center gap-2 text-left">
                       <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", statusItem.dot)} />
@@ -877,7 +877,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
               <div className="max-h-[590px] divide-y divide-line overflow-y-auto thin-scroll">
                 {verifications.map((item) => {
                   const doc = documents.find((document) => document.id === item.documentId);
-                  const statusItem = verificationStatus[item.status];
+                  const statusItem = verificationStatus[item.status] || verificationStatus.verification_pending || { label: "Pending", className: "bg-slate-soft text-slate", dot: "bg-slate" };
                   return (
                     <button key={item.documentId} onClick={() => setSelectedDocId(item.documentId)} className="group block w-full px-3.5 py-3 text-left transition-colors hover:bg-paper">
                       <div className="flex items-start justify-between gap-2">

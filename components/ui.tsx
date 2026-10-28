@@ -46,7 +46,7 @@ export function SectionHeading({
 }
 
 export function RiskChip({ level, className }: { level: RiskLevel; className?: string }) {
-  const item = riskLevel[level];
+  const item = riskLevel[level] || riskLevel.medium;
   return (
     <span className={cn("chip border", item.className, className)}>
       <span className={cn("h-1.5 w-1.5 rounded-full", item.dot)} />

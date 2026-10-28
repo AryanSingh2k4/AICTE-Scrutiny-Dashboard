@@ -28,13 +28,14 @@ export const riskLevel: Record<RiskLevel, { label: string; className: string; do
   low: { label: "Low", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" },
 };
 
-export const documentStatus: Record<DocumentStatus, { label: string; className: string; dot: string }> = {
+export const documentStatus: Record<string, { label: string; className: string; dot: string }> = {
   verified: { label: "Verified", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" },
   mismatch: { label: "Mismatch", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" },
   expired: { label: "Expired", className: "bg-rust-soft text-rust border-rust/15", dot: "bg-rust" },
   missing: { label: "Missing", className: "bg-[#f0ede5] text-muted border-line-strong", dot: "bg-[#9b9a90]" },
   processing: { label: "Processing", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate animate-pulse-soft" },
   manual_review: { label: "Manual review", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate" },
+  attention: { label: "Needs Review", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" },
 };
 
 export const severity: Record<string, { label: string; className: string; dot: string; bar: string }> = {
@@ -45,7 +46,7 @@ export const severity: Record<string, { label: string; className: string; dot: s
   info: { label: "Info", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate", bar: "bg-slate" },
 };
 
-export const verificationStatus: Record<VerificationStatus, { label: string; className: string; dot: string }> = {
+export const verificationStatus: Record<string, { label: string; className: string; dot: string }> = {
   not_started: { label: "Not started", className: "bg-[#f0ede5] text-muted border-line-strong", dot: "bg-[#9b9a90]" },
   verification_pending: { label: "Pending", className: "bg-slate-soft text-slate border-slate/15", dot: "bg-slate animate-pulse-soft" },
   verified: { label: "Verified", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" },

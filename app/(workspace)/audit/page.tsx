@@ -5,6 +5,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  CircleAlert,
   Clock3,
   Copy,
   Download,
@@ -20,11 +21,12 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { auditEntries } from "@/lib/mock-data";
 import { cn } from "@/lib/display";
 import { PageHeader, SectionHeading } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import type { AuditEntry } from "@/lib/types";
+
+const PAGE_SIZE = 25;
 
 const actionFilters = [
   { value: "all", label: "All events" },
@@ -64,8 +66,11 @@ function actionTone(action: string) {
 export default function AuditPage() {
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
-  const [entries, setEntries] = useState<AuditEntry[]>(auditEntries);
-  const [selectedId, setSelectedId] = useState(auditEntries[0]?.id ?? "");
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [selectedId, setSelectedId] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verifyResult, setVerifyResult] = useState<{
@@ -77,36 +82,44 @@ export default function AuditPage() {
   } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchLiveAudit() {
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from("audit_log")
-          .select("*")
-          .order("sequence_number", { ascending: false });
+  async function loadAuditLog() {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("audit_log")
+        .select("*")
+        .order("sequence_number", { ascending: false });
 
-        if (!error && data && data.length > 0) {
-          const mapped: AuditEntry[] = data.map((row: any) => ({
-            id: `LOG-${String(row.sequence_number).padStart(5, "0")}`,
-            sequence: row.sequence_number,
-            action: row.action,
-            actor: row.actor,
-            actorRole: row.actor_role,
-            entity: `${row.entity}:${row.entity_id}`,
-            timestamp: new Date(row.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-            hash: row.current_hash,
-            previousHash: row.prev_hash,
-            payload: row.payload || {},
-          }));
-          setEntries(mapped);
-          setSelectedId(mapped[0]?.id ?? "");
-        }
-      } catch (err) {
-        console.error("Failed to load live audit entries from Supabase:", err);
-      }
+      if (error) throw new Error(error.message);
+
+      const mapped: AuditEntry[] = (data || []).map((row: any) => ({
+        id: `LOG-${String(row.sequence_number).padStart(5, "0")}`,
+        sequence: row.sequence_number,
+        action: row.action,
+        actor: row.actor,
+        actorRole: row.actor_role,
+        entity: `${row.entity}:${row.entity_id}`,
+        timestamp: new Date(row.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        hash: row.current_hash,
+        previousHash: row.prev_hash,
+        payload: row.payload || {},
+      }));
+      setEntries(mapped);
+      setSelectedId((current) => (mapped.some((entry) => entry.id === current) ? current : mapped[0]?.id ?? ""));
+    } catch (err: any) {
+      console.error("Failed to load live audit entries from Supabase:", err);
+      setLoadError(err?.message || "Unable to load the audit log");
+      setEntries([]);
+      setSelectedId("");
+    } finally {
+      setLoading(false);
     }
-    fetchLiveAudit();
+  }
+
+  useEffect(() => {
+    loadAuditLog();
   }, []);
 
   const selected = entries.find((entry) => entry.id === selectedId) ?? entries[0] ?? null;
@@ -119,6 +132,39 @@ export default function AuditPage() {
       return true;
     });
   }, [actionFilter, entries, query]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const paged = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(0);
+  }, [query, actionFilter]);
+
+  function exportLog() {
+    const header = ["Sequence", "Action", "Actor", "Actor role", "Entity", "Timestamp (IST)", "Entry hash", "Previous hash", "Payload"];
+    const rows = filtered.map((entry) => [
+      String(entry.sequence),
+      entry.action,
+      entry.actor,
+      entry.actorRole,
+      entry.entity,
+      entry.timestamp,
+      entry.hash,
+      entry.previousHash,
+      JSON.stringify(entry.payload ?? {}),
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function verifyChain() {
     setVerifying(true);
@@ -154,13 +200,18 @@ export default function AuditPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow={`Append-only · SHA-256 hash chain · ${entries.length} entries`}
+        eyebrow={`Append-only · SHA-256 hash chain · ${loading ? "loading…" : `${entries.length} entries`}`}
         title="Audit trail"
         description="A verifiable record of every rule applied, record read, source response, document view and human decision."
         actions={
           <>
-            <button className="btn btn-secondary"><Download className="h-3.5 w-3.5" /> Export log</button>
-            <button onClick={verifyChain} disabled={verifying} className={cn("btn", verified ? "btn-secondary" : "btn-primary")}>
+            <button className="btn btn-secondary" onClick={exportLog} disabled={filtered.length === 0}>
+              <Download className="h-3.5 w-3.5" /> Export log
+            </button>
+            <button onClick={loadAuditLog} disabled={loading} className="btn btn-secondary">
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Refresh
+            </button>
+            <button onClick={verifyChain} disabled={verifying || loading} className={cn("btn", verified ? "btn-secondary" : "btn-primary")}>
               {verifying ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
               {verifying ? "Verifying chain…" : verified ? "Chain verified" : "Verify chain integrity"}
             </button>
@@ -168,10 +219,20 @@ export default function AuditPage() {
         }
       />
 
+      {loadError ? (
+        <div className="mt-4 flex items-start gap-2.5 rounded-md border border-rust/25 bg-rust-soft px-4 py-3 text-[12.5px] text-rust">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-semibold">Could not load the audit log.</div>
+            <div className="mt-0.5">{loadError}</div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="card mt-6 grid grid-cols-2 divide-x divide-y divide-line overflow-hidden lg:grid-cols-4 lg:divide-y-0">
         {[
-          { label: "Chain status", value: entries.length > 0 ? "Intact" : "Ready", detail: "cryptographic verification", tone: "text-pine", icon: ShieldCheck },
-          { label: "Entries sealed", value: String(entries.length), detail: "append-only log", tone: "text-ink", icon: LockKeyhole },
+          { label: "Chain status", value: verified ? "Intact" : "Not checked", detail: verified ? "cryptographic verification" : "run verification below", tone: verified ? "text-pine" : "text-ink", icon: ShieldCheck },
+          { label: "Entries sealed", value: loading ? "—" : String(entries.length), detail: "append-only log", tone: "text-ink", icon: LockKeyhole },
           { label: "Last sealed", value: entries.length > 0 ? entries[0].timestamp : "—", detail: "timestamped", tone: "text-ink", icon: Clock3 },
           { label: "Hash algorithm", value: "SHA-256", detail: "prev_hash + canonical JSON", tone: "text-ink", icon: Fingerprint },
         ].map((item) => {
@@ -226,7 +287,7 @@ export default function AuditPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {filtered.map((entry) => {
+                {paged.map((entry) => {
                   const active = selectedId === entry.id;
                   return (
                     <tr key={entry.id} onClick={() => setSelectedId(entry.id)} className={cn("cursor-pointer transition-colors", active ? "bg-pine-soft/35" : "row-hover")}>
@@ -248,12 +309,38 @@ export default function AuditPage() {
               </tbody>
             </table>
           </div>
-          {filtered.length === 0 ? <div className="px-5 py-12 text-center text-[12px] text-muted">No entries match the current filter.</div> : null}
-          <div className="flex items-center justify-between border-t border-line bg-[#faf8f2] px-4 py-2.5">
-            <span className="text-[12px] text-muted">Showing {filtered.length} of {entries.length} entries · full log available via export.</span>
+          {paged.length === 0 ? (
+            <div className="px-5 py-12 text-center text-[12px] text-muted">
+              {loading
+                ? "Loading the hash-chained audit log…"
+                : loadError
+                  ? "The audit log could not be loaded. Use Refresh to retry."
+                  : entries.length === 0
+                    ? "No audit entries recorded yet. Actions, validations, and decisions will be cryptographically sealed here."
+                    : "No entries match the current filter."}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-[#faf8f2] px-4 py-2.5">
+            <span className="text-[12px] text-muted">
+              {filtered.length > 0
+                ? `Showing ${currentPage * PAGE_SIZE + 1}–${Math.min((currentPage + 1) * PAGE_SIZE, filtered.length)} of ${filtered.length} entries · page ${currentPage + 1} of ${pageCount}`
+                : `0 of ${entries.length} entries`}
+            </span>
             <div className="flex items-center gap-1">
-              <button className="flex h-7 items-center gap-1 rounded border border-line bg-surface px-2.5 text-[11.5px] text-muted"><ChevronRight className="h-3 w-3 rotate-180" /> Prev</button>
-              <button className="flex h-7 items-center gap-1 rounded border border-line bg-surface px-2.5 text-[11.5px] text-muted">Next <ChevronRight className="h-3 w-3" /></button>
+              <button
+                onClick={() => setPage((current) => Math.max(0, current - 1))}
+                disabled={currentPage === 0}
+                className="flex h-7 items-center gap-1 rounded border border-line bg-surface px-2.5 text-[11.5px] text-muted disabled:opacity-50"
+              >
+                <ChevronRight className="h-3 w-3 rotate-180" /> Prev
+              </button>
+              <button
+                onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+                disabled={currentPage >= pageCount - 1}
+                className="flex h-7 items-center gap-1 rounded border border-line bg-surface px-2.5 text-[11.5px] text-muted disabled:opacity-50"
+              >
+                Next <ChevronRight className="h-3 w-3" />
+              </button>
             </div>
           </div>
         </section>

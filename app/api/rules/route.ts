@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { mapRuleRecord } from "@/lib/officer/data";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ rules: data });
+  return NextResponse.json({ rules: (data || []).map(mapRuleRecord) });
 }
 
 export async function POST(request: Request) {

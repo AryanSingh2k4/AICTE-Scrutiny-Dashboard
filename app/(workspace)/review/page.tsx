@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Check,
   ChevronRight,
+  CircleAlert,
   Clock3,
   Filter,
   RefreshCw,
@@ -14,19 +15,34 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { reviewQueue } from "@/lib/mock-data";
-import { cn, percent, reviewCategory } from "@/lib/display";
+import { cn, reviewCategory } from "@/lib/display";
 import type { ReviewItem } from "@/lib/types";
 import { PageHeader } from "@/components/ui";
+import { CURRENT_OFFICER } from "@/lib/officer/identity";
+
+const CURRENT_OFFICER_NAME = CURRENT_OFFICER.name;
+
+function categoryDetail(category: ReviewItem["category"]) {
+  switch (category) {
+    case "source_unavailable":
+      return "Issuer adapter did not return a conclusive response. Retry the source before deciding.";
+    case "anomaly":
+      return "Advisory forensic indicator flagged for human inspection — this is not a conclusion.";
+    case "ambiguous_match":
+      return "Automated match is inconclusive against the configured similarity threshold.";
+    case "extraction":
+      return "A required field could not be extracted or matched with sufficient confidence.";
+  }
+}
 
 function QueueCard({
   item,
-  claimed,
   onClaim,
+  claiming,
 }: {
   item: ReviewItem;
-  claimed: boolean;
   onClaim: () => void;
+  claiming: boolean;
 }) {
   const accent =
     item.priority === "urgent"
@@ -60,26 +76,20 @@ function QueueCard({
           <span className="mono text-[11px] text-muted">{item.ruleId}</span>
           <span className="mono text-[11px] text-muted">{reviewCategory[item.category]}</span>
         </div>
-        <p className="mt-1 text-[12px] leading-relaxed text-[#656a62]">
-          {item.category === "source_unavailable"
-            ? "Adapter timeout after 5.0s. No conclusive response recorded."
-            : item.category === "anomaly"
-              ? "ELA variance 3.8σ above page median in certificate number region."
-              : "Normalized similarity 0.76 against configured threshold 0.95."}
-        </p>
+        <p className="mt-1 text-[12px] leading-relaxed text-[#656a62]">{categoryDetail(item.category)}</p>
+        <div className="mt-1 text-[11px] text-muted">{item.documents} document(s) on file · {item.applicationId}</div>
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          {claimed ? (
+          {item.assignee ? (
             <>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pine-soft text-[10px] font-bold text-pine">AM</span>
-              <span className="text-[12px] font-medium text-pine">You</span>
-            </>
-          ) : item.assignee ? (
-            <>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#eeeae0] text-[10px] font-bold text-muted">{item.assignee.split(" ").map((part) => part[0]).join("")}</span>
-              <span className="text-[12px] text-muted">{item.assignee}</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pine-soft text-[10px] font-bold text-pine">
+                {item.assignee.split(" ").map((part) => part[0]).join("").slice(0, 2)}
+              </span>
+              <span className="truncate text-[12px] font-medium text-pine">
+                {item.assignee === CURRENT_OFFICER_NAME ? "You" : item.assignee}
+              </span>
             </>
           ) : (
             <>
@@ -89,9 +99,14 @@ function QueueCard({
           )}
         </div>
         <div className="flex items-center gap-1">
-          {!claimed && !item.assignee ? (
-            <button onClick={onClaim} className="flex h-6.5 items-center gap-1 rounded border border-line bg-surface px-2 text-[12px] font-semibold text-pine hover:border-pine/30 hover:bg-pine-soft/40">
-              <UserPlus className="h-3 w-3" /> Claim
+          {!item.assignee ? (
+            <button
+              onClick={onClaim}
+              disabled={claiming}
+              className="flex h-6.5 items-center gap-1 rounded border border-line bg-surface px-2 text-[12px] font-semibold text-pine hover:border-pine/30 hover:bg-pine-soft/40 disabled:opacity-60"
+            >
+              {claiming ? <RefreshCw className="h-3 w-3 animate-spin" /> : <UserPlus className="h-3 w-3" />}
+              Claim
             </button>
           ) : null}
           <Link href={`/applications/${item.applicationId}`} className="flex h-6.5 items-center gap-1 rounded px-2 text-[12px] font-semibold text-muted hover:bg-paper hover:text-ink">
@@ -104,19 +119,42 @@ function QueueCard({
 }
 
 export default function ReviewQueuePage() {
+  const [items, setItems] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [claimed, setClaimed] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+
+  async function loadQueue() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/review-queue", { cache: "no-store" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "Unable to load review queue");
+      setItems(Array.isArray(payload.items) ? payload.items : []);
+    } catch (err: any) {
+      console.error("Failed to load review queue:", err);
+      setError(err?.message || "Unable to load review queue");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadQueue();
+  }, []);
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
-    return reviewQueue.filter((item) => {
+    return items.filter((item) => {
       if (category !== "all" && item.category !== category) return false;
-      if (normalized && !`${item.institution} ${item.applicationId} ${item.reason}`.toLowerCase().includes(normalized)) return false;
+      if (normalized && !`${item.institution} ${item.applicationId} ${item.reason} ${item.ruleId}`.toLowerCase().includes(normalized)) return false;
       return true;
     });
-  }, [category, query]);
+  }, [items, category, query]);
 
   const columns = [
     { key: "urgent", label: "Urgent", detail: "Resolve within 2 hours", items: filtered.filter((item) => item.priority === "urgent") },
@@ -124,35 +162,110 @@ export default function ReviewQueuePage() {
     { key: "normal", label: "Normal", detail: "Resolve within 3 days", items: filtered.filter((item) => item.priority === "normal") },
   ];
 
-  function claim(id: string, institution: string) {
-    setClaimed((current) => [...current, id]);
-    setToast(`Queue item ${id} claimed. ${institution} is now assigned to you.`);
+  async function claimItem(item: ReviewItem) {
+    setClaimingId(item.id);
+    try {
+      const res = await fetch("/api/review-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemKey: item.id, officerName: CURRENT_OFFICER_NAME }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "Unable to claim item");
+
+      setItems((current) => current.map((entry) => (entry.id === item.id ? { ...entry, assignee: CURRENT_OFFICER_NAME } : entry)));
+      setToast(
+        payload?.persisted === false
+          ? `${item.institution} is assigned to you for this session. ${payload.warning || ""}`
+          : `Queue item ${item.id} claimed. ${item.institution} is now assigned to you.`
+      );
+    } catch (err: any) {
+      setToast(err?.message || "Unable to claim this item. Apply the review_claims migration to persist claims.");
+    } finally {
+      setClaimingId(null);
+    }
   }
+
+  async function autoAssign() {
+    const unassigned = items.filter((item) => !item.assignee);
+    if (unassigned.length === 0) {
+      setToast("All queue items are already assigned.");
+      return;
+    }
+    setLoading(true);
+    const results = await Promise.allSettled(
+      unassigned.map((item) =>
+        fetch("/api/review-queue", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemKey: item.id, officerName: CURRENT_OFFICER_NAME }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const payload = await res.json().catch(() => ({}));
+            throw new Error(payload?.error || "Unable to claim item");
+          }
+          return item.id;
+        })
+      )
+    );
+    const claimed = results.filter((result) => result.status === "fulfilled").length;
+    const claimedIds = new Set(
+      results
+        .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled")
+        .map((result) => result.value)
+    );
+    setItems((current) => current.map((item) => (claimedIds.has(item.id) ? { ...item, assignee: CURRENT_OFFICER_NAME } : item)));
+    setLoading(false);
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    setToast(
+      failure
+        ? `${claimed} of ${unassigned.length} items claimed. ${failure.reason?.message || "Some claims could not be persisted."}`
+        : `${claimed} queue item(s) assigned to you and recorded in the audit log.`
+    );
+  }
+
+  const unassignedCount = items.filter((item) => !item.assignee).length;
+  const claimedCount = items.length - unassignedCount;
+  const urgentCount = items.filter((item) => item.priority === "urgent").length;
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow={`${reviewQueue.length} open · ${reviewQueue.filter(i => i.priority === "high").length} high priority`}
+        eyebrow={`${items.length} open · ${urgentCount} urgent · ${unassignedCount} unassigned`}
         title="Manual review queue"
         description="Items where automated checks were inconclusive, unavailable, or need a human judgment. Nothing here changes an outcome until an officer acts."
         actions={
           <>
-            <button className="btn btn-secondary"><RefreshCw className="h-3.5 w-3.5" /> Refresh</button>
-            <button onClick={() => setToast(`${reviewQueue.filter(i => !i.assignee).length} unassigned items distributed by current workload.`)} className="btn btn-primary"><UserPlus className="h-3.5 w-3.5" /> Auto-assign ({reviewQueue.filter(i => !i.assignee).length})</button>
+            <button className="btn btn-secondary" onClick={loadQueue} disabled={loading}>
+              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Refresh
+            </button>
+            <button onClick={autoAssign} disabled={loading || unassignedCount === 0} className="btn btn-primary">
+              <UserPlus className="h-3.5 w-3.5" /> Auto-assign ({unassignedCount})
+            </button>
           </>
         }
       />
 
+      {error ? (
+        <div className="mt-4 flex items-start gap-2.5 rounded-md border border-rust/25 bg-rust-soft px-4 py-3 text-[12.5px] text-rust">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-semibold">Could not load the review queue.</div>
+            <div className="mt-0.5">{error}</div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="card mt-6 grid grid-cols-2 divide-x divide-y divide-line overflow-hidden lg:grid-cols-4 lg:divide-y-0">
         {[
-          { label: "Unassigned", value: String(reviewQueue.filter(i => !i.assignee).length), detail: "awaiting officer", tone: "text-ink" },
-          { label: "Source unavailable", value: String(reviewQueue.filter(i => i.category === "source_unavailable").length), detail: "retryable timeouts", tone: "text-slate" },
-          { label: "Anomaly review", value: String(reviewQueue.filter(i => i.category === "anomaly").length), detail: "human eye required", tone: "text-rust" },
-          { label: "Median wait", value: "—", detail: "no wait recorded", tone: "text-pine" },
+          { label: "Unassigned", value: String(unassignedCount), detail: "awaiting officer", tone: "text-ink" },
+          { label: "Source unavailable", value: String(items.filter((i) => i.category === "source_unavailable").length), detail: "retryable timeouts", tone: "text-slate" },
+          { label: "Anomaly review", value: String(items.filter((i) => i.category === "anomaly").length), detail: "human eye required", tone: "text-rust" },
+          { label: "Claimed", value: String(claimedCount), detail: "assigned in database", tone: "text-pine" },
         ].map((item) => (
           <div key={item.label} className="px-5 py-4">
             <div className="eyebrow text-[11px]">{item.label}</div>
-            <div className={cn("display mt-2 text-[32px] leading-none", item.tone)}>{item.value}</div>
+            <div className={cn("display mt-2 text-[32px] leading-none", item.tone)}>{loading && !items.length ? "—" : item.value}</div>
             <div className="mt-1.5 text-[12px] text-muted">{item.detail}</div>
           </div>
         ))}
@@ -197,15 +310,20 @@ export default function ReviewQueuePage() {
                 </div>
                 <p className="mt-0.5 pl-4 text-[11.5px] text-muted">{column.detail}</p>
               </div>
-              <button className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface" aria-label={`Filter ${column.label}`}><Filter className="h-3.5 w-3.5" /></button>
+              <span className="flex h-6 w-6 items-center justify-center rounded text-muted" aria-hidden="true"><Filter className="h-3.5 w-3.5" /></span>
             </div>
             <div className="space-y-2">
               {column.items.length ? column.items.map((item) => (
-                <QueueCard key={item.id} item={item} claimed={claimed.includes(item.id)} onClaim={() => claim(item.id, item.institution)} />
+                <QueueCard
+                  key={item.id}
+                  item={item}
+                  claiming={claimingId === item.id}
+                  onClaim={() => claimItem(item)}
+                />
               )) : (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-surface/50 px-4 py-9 text-center">
                   <Check className="h-4 w-4 text-pine" />
-                  <div className="mt-2 text-[13px] font-medium">Nothing in this lane</div>
+                  <div className="mt-2 text-[13px] font-medium">{loading && !items.length ? "Loading queue…" : "Nothing in this lane"}</div>
                   <div className="mt-0.5 text-[11.5px] text-muted">All clear for the current filter.</div>
                 </div>
               )}
@@ -227,7 +345,7 @@ export default function ReviewQueuePage() {
         <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3.5">
           <div>
             <div className="text-[11px] text-muted">Oldest unresolved item</div>
-            <div className="mt-1 text-[13px] font-semibold">{reviewQueue.length > 0 ? `${reviewQueue[0].id} · ${reviewQueue[0].age}` : "Queue empty"}</div>
+            <div className="mt-1 truncate text-[13px] font-semibold">{items.length > 0 ? `${items[0].id} · ${items[0].age}` : "Queue empty"}</div>
           </div>
           <Link href="/audit" className="flex items-center gap-1 text-[12px] font-semibold text-pine">Audit trail <ChevronRight className="h-3.5 w-3.5" /></Link>
         </div>

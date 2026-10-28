@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Check,
   Clock3,
-  ExternalLink,
   Fingerprint,
   FileText,
   Info,
@@ -104,7 +103,7 @@ export function ExplainabilityDrawer({
               <ConfidenceMeter value={finding.confidence} tone={finding.severity === "high" ? "rust" : finding.severity === "medium" ? "ochre" : "pine"} className="mt-2" showValue={false} />
               <div className="mt-1.5 flex justify-between text-[11.5px] text-muted">
                 <span>Advisory confidence, not a probability of forgery</span>
-                <span>threshold {finding.ruleType === "image_forensics" ? "0.78" : "0.90"}</span>
+                <span>configured threshold</span>
               </div>
             </div>
 
@@ -189,7 +188,7 @@ export function ExplainabilityDrawer({
 
             <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[11.5px] text-muted"><FileText className="h-3.5 w-3.5" /> Source response retained</div>
-              <button className="flex items-center gap-1 text-[12px] font-medium text-pine hover:underline">Open source record <ExternalLink className="h-3 w-3" /></button>
+              <span className="mono max-w-[220px] truncate text-[11px] text-muted">{finding.source}</span>
             </div>
           </div>
         </div>
@@ -198,7 +197,7 @@ export function ExplainabilityDrawer({
           {acknowledged ? (
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-pine"><ShieldCheck className="h-4 w-4" /> Acknowledged for human review</span>
-              <span className="mono text-[11px] text-muted">logged · 11:46 IST</span>
+              <span className="mono text-[11px] text-muted">logged in audit trail</span>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">

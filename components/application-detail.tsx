@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,7 +21,6 @@ import {
   Layers,
   LockKeyhole,
   MessageSquareWarning,
-  MoreHorizontal,
   Printer,
   QrCode,
   RefreshCw,
@@ -35,17 +34,17 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { applications, auditEntries, documents, findings, rules, verifications } from "@/lib/mock-data";
-import {
-  applicationStatus,
-  cn,
-  documentStatus,
-  percent,
-  riskLevel,
-  severity,
-  verificationStatus,
-} from "@/lib/display";
-import type { Application, ApplicationStatus, DocumentRecord, DocumentStatus, Finding, FindingSeverity, RiskLevel } from "@/lib/types";
+import { applicationStatus, cn, documentStatus, percent, riskLevel, severity, verificationStatus } from "@/lib/display";
+import type {
+  Application,
+  ApplicationStatus,
+  AuditEntry,
+  DocumentRecord,
+  Finding,
+  RiskLevel,
+  RuleRecord,
+} from "@/lib/types";
+import type { ApplicationDossier } from "@/lib/officer/data";
 import { ConfidenceMeter, PageHeader } from "@/components/ui";
 import { DocumentPreview } from "@/components/document-preview";
 import { DecisionDialog, type DecisionType } from "@/components/decision-dialog";
@@ -75,12 +74,30 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
-function ValidationReport({ application, appFindings, onRerun, rerunning }: { application: Application; appFindings: Finding[]; onRerun: () => void; rerunning: boolean }) {
+function ValidationReport({
+  application,
+  appFindings,
+  rules,
+  rulebookVersion,
+  validationResults,
+  onRerun,
+  rerunning,
+}: {
+  application: Application;
+  appFindings: Finding[];
+  rules: RuleRecord[];
+  rulebookVersion: string;
+  validationResults: Array<Record<string, any>>;
+  onRerun: () => void;
+  rerunning: boolean;
+}) {
   const ruleResults = rules.map((rule) => {
     const finding = appFindings.find((item) => item.ruleId === rule.id);
     return { ...rule, finding };
   });
   const fails = ruleResults.filter((rule) => rule.finding).length;
+  const passed = validationResults.filter((row) => row.status === "PASS").length;
+  const latestRun = validationResults[0]?.evaluated_at;
 
   return (
     <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
@@ -95,16 +112,16 @@ function ValidationReport({ application, appFindings, onRerun, rerunning }: { ap
             <button onClick={onRerun} disabled={rerunning} className="btn btn-secondary text-[12.5px]">
               <RefreshCw className={cn("h-3.5 w-3.5", rerunning && "animate-spin")} /> {rerunning ? "Running…" : "Re-run validation"}
             </button>
-            <button className="btn btn-secondary text-[12.5px]"><Printer className="h-3.5 w-3.5" /> Print</button>
+            <button onClick={() => window.print()} className="btn btn-secondary text-[12.5px]"><Printer className="h-3.5 w-3.5" /> Print</button>
           </div>
         </div>
 
         <div className="grid grid-cols-2 border-b border-line bg-[#f8f5ee] sm:grid-cols-4">
           {[
-            { label: "Rules evaluated", value: String(ruleResults.length), tone: "text-ink" },
+            { label: "Rules evaluated", value: String(validationResults.length || ruleResults.length), tone: "text-ink" },
             { label: "Findings raised", value: String(fails), tone: "text-rust" },
-            { label: "Passed", value: String(ruleResults.length - fails), tone: "text-pine" },
-            { label: "Rulebook", value: "v1.4", tone: "text-ink" },
+            { label: "Passed", value: String(passed), tone: "text-pine" },
+            { label: "Rulebook", value: `v${rulebookVersion}`, tone: "text-ink" },
           ].map((item, index) => (
             <div key={item.label} className={cn("px-4 py-3.5", index < 3 && "border-r border-line")}>
               <div className="eyebrow text-[11px]">{item.label}</div>
@@ -150,16 +167,15 @@ function ValidationReport({ application, appFindings, onRerun, rerunning }: { ap
           <div className="eyebrow text-[11px]">Run metadata</div>
           <div className="mt-3 space-y-2.5 text-[12px]">
             {[
-              ["Run ID", "RUN-7A81C"],
-              ["Started", "11:06:52 IST"],
-              ["Duration", "2.84s"],
+              ["Last run", latestRun ? new Date(latestRun).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) + " IST" : "Not run"],
+              ["Results recorded", String(validationResults.length)],
               ["Checklist", "EoA 2026–27"],
-              ["Version", "1.4"],
+              ["Version", rulebookVersion],
               ["Mode", "Deterministic"],
             ].map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between">
+              <div key={key} className="flex items-center justify-between gap-3">
                 <span className="text-muted">{key}</span>
-                <span className="mono text-ink">{value}</span>
+                <span className="mono text-right text-ink">{value}</span>
               </div>
             ))}
           </div>
@@ -177,7 +193,7 @@ function ValidationReport({ application, appFindings, onRerun, rerunning }: { ap
           </div>
           <div className="mt-2 rounded-md border border-line bg-[#f7f4ec] p-2.5 font-mono text-[11.5px] leading-relaxed text-[#6e6f66]">
             rules/2026-27/eoa-renewal.yaml<br />
-            <span className="text-pine">12 rules · 5 doc classes</span>
+            <span className="text-pine">{rules.length} rules · {new Set(rules.map((rule) => rule.group)).size} groups</span>
           </div>
           <Link href="/rules" className="mt-3 flex items-center gap-1 text-[12px] font-semibold text-pine hover:underline">Open rule editor <ArrowUpRight className="h-3 w-3" /></Link>
         </div>
@@ -186,33 +202,35 @@ function ValidationReport({ application, appFindings, onRerun, rerunning }: { ap
   );
 }
 
-function AuditScope({ application }: { application: Application }) {
+function AuditScope({ application, entries }: { application: Application; entries: AuditEntry[] }) {
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verifyData, setVerifyData] = useState<{ total_entries: number; first_broken_id: string | null } | null>(null);
-  const scoped = auditEntries.slice(0, 6);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const scoped = entries.slice(0, 6);
 
   async function verify() {
     setVerifying(true);
+    setVerifyError(null);
     try {
-      const res = await fetch("/api/audit/verify");
+      const res = await fetch("/api/audit/verify", { cache: "no-store" });
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Audit verification failed");
       setVerifyData({
         total_entries: data.total_entries || 0,
         first_broken_id: data.first_broken_id || null,
       });
       setVerified(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Audit chain verification error:", err);
-      setVerifyData({
-        total_entries: 1284,
-        first_broken_id: null,
-      });
-      setVerified(true);
+      setVerifyError(err?.message || "Audit verification failed");
     } finally {
       setVerifying(false);
     }
   }
+
+  const sealedEntries = verifyData?.total_entries ?? entries.length;
+  const lastSealed = entries[0];
 
   return (
     <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_310px]">
@@ -232,41 +250,50 @@ function AuditScope({ application }: { application: Application }) {
         {verified ? (
           <div className="flex items-center gap-2 border-b border-pine/15 bg-pine-soft/60 px-5 py-2.5 text-[12.5px] text-pine-deep">
             <CheckCircle2 className="h-4 w-4" />
-            All {verifyData?.total_entries ?? 1284} entries verified via SHA-256 chain. Broken ID: {verifyData?.first_broken_id || "none"}.
+            All {verifyData?.total_entries ?? entries.length} entries verified via SHA-256 chain. Broken ID: {verifyData?.first_broken_id || "none"}.
             <span className="mono ml-auto text-[11px]">checked at {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST</span>
+          </div>
+        ) : null}
+        {verifyError ? (
+          <div className="border-b border-rust/20 bg-rust-soft px-5 py-2.5 text-[12.5px] text-rust">
+            {verifyError}
           </div>
         ) : null}
 
         <div className="divide-y divide-line">
-          {scoped.map((entry) => (
-            <div key={entry.id} className="flex items-start gap-3 px-5 py-3.5">
-              <div className="relative mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-pine/20 bg-pine-soft text-[11px] font-semibold text-pine">
-                {entry.sequence}
+          {scoped.length === 0 ? (
+            <div className="px-5 py-10 text-center text-[12px] text-muted">No audit entries recorded for this application yet.</div>
+          ) : (
+            scoped.map((entry) => (
+              <div key={entry.id} className="flex items-start gap-3 px-5 py-3.5">
+                <div className="relative mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-pine/20 bg-pine-soft text-[11px] font-semibold text-pine">
+                  {entry.sequence}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="mono text-[12.5px] font-medium text-ink">{entry.action}</span>
+                    <span className="rounded border border-line bg-paper px-1.5 py-0.5 text-[11px] text-muted">{entry.actorRole}</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted">
+                    <span>{entry.actor}</span>
+                    <span>·</span>
+                    <span className="mono">{entry.entity}</span>
+                    <span>·</span>
+                    <span>{entry.timestamp}</span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted">
+                    <span className="mono">prev {entry.previousHash}</span>
+                    <ArrowRight className="h-3 w-3" />
+                    <span className="mono text-ink">{entry.hash}</span>
+                  </div>
+                </div>
+                <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-pine-soft text-pine"><Check className="h-3 w-3" /></span>
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="mono text-[12.5px] font-medium text-ink">{entry.action}</span>
-                  <span className="rounded border border-line bg-paper px-1.5 py-0.5 text-[11px] text-muted">{entry.actorRole}</span>
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted">
-                  <span>{entry.actor}</span>
-                  <span>·</span>
-                  <span className="mono">{entry.entity}</span>
-                  <span>·</span>
-                  <span>{entry.timestamp} IST</span>
-                </div>
-                <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted">
-                  <span className="mono">prev {entry.previousHash}</span>
-                  <ArrowRight className="h-3 w-3" />
-                  <span className="mono text-ink">{entry.hash}</span>
-                </div>
-              </div>
-              <span className="mt-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-pine-soft text-pine"><Check className="h-3 w-3" /></span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
         <div className="flex items-center justify-between border-t border-line bg-[#f8f5ee] px-5 py-3">
-          <span className="text-[12px] text-muted">Showing 6 most recent entries scoped to this application.</span>
+          <span className="text-[12px] text-muted">Showing {scoped.length} most recent entries scoped to this application.</span>
           <Link href="/audit" className="flex items-center gap-1 text-[12px] font-semibold text-pine">Open full audit log <ArrowUpRight className="h-3 w-3" /></Link>
         </div>
       </section>
@@ -275,7 +302,9 @@ function AuditScope({ application }: { application: Application }) {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div className="eyebrow text-[11px]">Chain integrity</div>
-            <span className="chip border-pine/15 bg-pine-soft text-pine"><span className="h-1.5 w-1.5 rounded-full bg-pine" /> Intact</span>
+            <span className={cn("chip", verified ? "border-pine/15 bg-pine-soft text-pine" : "border-line bg-paper text-muted")}>
+              <span className={cn("h-1.5 w-1.5 rounded-full", verified ? "bg-pine" : "bg-slate")} /> {verified ? "Intact" : "Unverified"}
+            </span>
           </div>
           <div className="mt-4 flex items-center gap-3">
             <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-pine/25 bg-pine-soft text-pine">
@@ -283,14 +312,14 @@ function AuditScope({ application }: { application: Application }) {
               <span className="absolute inset-1 rounded-full border border-dashed border-pine/20" />
             </div>
             <div>
-              <div className="mono text-[20px] font-medium">1,284</div>
+              <div className="mono text-[20px] font-medium">{sealedEntries.toLocaleString("en-IN")}</div>
               <div className="text-[11.5px] text-muted">entries sealed</div>
             </div>
           </div>
           <div className="mt-4 space-y-2 text-[12px]">
-            <div className="flex justify-between"><span className="text-muted">Last sealed</span><span className="mono">14:32:08 IST</span></div>
-            <div className="flex justify-between"><span className="text-muted">Last hash</span><span className="mono">8f3a91c4…c91d</span></div>
-            <div className="flex justify-between"><span className="text-muted">Algorithm</span><span className="mono">SHA-256</span></div>
+            <div className="flex justify-between gap-2"><span className="text-muted">Last sealed</span><span className="mono text-right">{lastSealed?.timestamp || "—"}</span></div>
+            <div className="flex justify-between gap-2"><span className="text-muted">Last hash</span><span className="mono text-right">{lastSealed?.hash || "—"}</span></div>
+            <div className="flex justify-between gap-2"><span className="text-muted">Algorithm</span><span className="mono">SHA-256</span></div>
           </div>
         </div>
         <div className="rounded-lg border border-line bg-[#f7f4ec] p-4">
@@ -302,86 +331,13 @@ function AuditScope({ application }: { application: Application }) {
   );
 }
 
-const COLLEGE_META: Record<string, { name: string; shortName: string; city: string; state: string; programme: string; intake: number; trust: string }> = {
-  "APP-2026-8941": {
-    name: "Sardar Patel Institute of Technology",
-    shortName: "SPIT",
-    city: "Mumbai",
-    state: "Maharashtra",
-    programme: "Computer Engineering & Technology",
-    intake: 300,
-    trust: "Bharatiya Vidya Bhavan (Reg. F-142(M))",
-  },
-  "APP-2026-9012": {
-    name: "Lokmanya Tilak College of Engineering (LTCE)",
-    shortName: "LTCE",
-    city: "Navi Mumbai",
-    state: "Maharashtra",
-    programme: "Computer Engineering & Technology",
-    intake: 360,
-    trust: "Lokmanya Tilak Jankalyan Shikshan Sanstha (Reg. F-2034)",
-  },
-  "APP-2026-9045": {
-    name: "Datta Meghe College of Engineering (DMCE)",
-    shortName: "DMCE",
-    city: "Navi Mumbai",
-    state: "Maharashtra",
-    programme: "Civil & Computer Engineering",
-    intake: 420,
-    trust: "Nagar Yuwak Shikshan Sanstha, Airoli (Reg. E-1456)",
-  },
-};
-
 export function ApplicationDetail({ applicationId }: { applicationId: string }) {
-  const fallbackApp = useMemo<Application>(() => {
-    const meta = COLLEGE_META[applicationId] || {
-      name: "Technical Institution",
-      shortName: applicationId.replace("APP-2026-", ""),
-      city: "Mumbai",
-      state: "Maharashtra",
-      programme: "Engineering & Technology",
-      intake: 300,
-      trust: "Educational Trust",
-    };
-    return {
-      id: applicationId,
-      institution: meta.name,
-      shortName: meta.shortName,
-      city: meta.city,
-      state: meta.state,
-      programme: meta.programme,
-      intake: meta.intake,
-      trust: meta.trust,
-      submittedAt: new Date().toISOString(),
-      submittedLabel: "Today · Submitted",
-      documentsTotal: 5,
-      documentsReceived: 0,
-      findings: 0,
-      highFindings: 0,
-      status: "ready_for_review",
-      risk: "low",
-      officer: "Dr. Ananya Menon",
-      lastAction: "Awaiting scrutiny review",
-    };
-  }, [applicationId]);
+  const [dossier, setDossier] = useState<ApplicationDossier | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const application = applications.find((app) => app.id === applicationId) ?? fallbackApp;
-
-  const [customDocs, setCustomDocs] = useState<DocumentRecord[]>([]);
-
-  const appDocs = useMemo(() => {
-    const staticDocs = documents.filter((doc) => doc.id.includes(application.id));
-    return [...customDocs, ...staticDocs];
-  }, [application.id, customDocs]);
-
-  const [appFindings, setAppFindings] = useState<Finding[]>(() => {
-    return findings.filter((finding) => appDocs.some((d) => d.id === finding.documentId) || finding.documentId === application.id);
-  });
-  const [appStatus, setAppStatus] = useState<ApplicationStatus>(application.status);
-  const [appRisk, setAppRisk] = useState<RiskLevel>(application.risk);
-
-  const [selectedDocId, setSelectedDocId] = useState(appDocs[0]?.id ?? "");
-  const [selectedFindingId, setSelectedFindingId] = useState(appFindings[0]?.id ?? "");
+  const [selectedDocId, setSelectedDocId] = useState("");
+  const [selectedFindingId, setSelectedFindingId] = useState("");
   const [showOverlay, setShowOverlay] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [rightTab, setRightTab] = useState<"findings" | "verification">("findings");
@@ -395,104 +351,116 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
   const [toast, setToast] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [requestingDoc, setRequestingDoc] = useState(false);
+  const [appStatus, setAppStatus] = useState<ApplicationStatus>("ready_for_review");
+  const [appRisk, setAppRisk] = useState<RiskLevel>("low");
+
+  async function loadDossier(showSpinner = true) {
+    if (showSpinner) setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch(`/api/applications/${applicationId}/dossier`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Unable to load application dossier");
+      setDossier(data as ApplicationDossier);
+      if (data?.application) {
+        setAppStatus(data.application.status);
+        setAppRisk(data.application.risk);
+      }
+    } catch (err: any) {
+      console.error("Failed to load application dossier:", err);
+      setLoadError(err?.message || "Unable to load application dossier");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadInitialValidation() {
-      if (!application?.id) return;
-      try {
-        // 1. Fetch dynamic uploaded documents & anomalies for this application from database
-        const docRes = await fetch(`/api/applications/${application.id}/documents`);
-        if (docRes.ok) {
-          const docData = await docRes.json();
-          if (docData.documents && docData.documents.length > 0) {
-            const mappedCustomDocs: DocumentRecord[] = docData.documents
-              .filter((dbDoc: any) => !documents.some((staticDoc) => staticDoc.id === dbDoc.id))
-              .map((dbDoc: any) => ({
-                id: dbDoc.id,
-                type: dbDoc.document_type || "Regulatory Evidence",
-                label: dbDoc.document_type || dbDoc.file_name,
-                fileName: dbDoc.file_name,
-                pages: dbDoc.page_count || 1,
-                status: "manual_review" as DocumentStatus,
-                issuer: "Uploaded Institution Dossier",
-                reference: dbDoc.sha256_hash?.slice(0, 16) || "N/A",
-                hash: dbDoc.sha256_hash || "",
-                uploadedAt: new Date(dbDoc.created_at || Date.now()).toLocaleDateString("en-IN"),
-                extracted: [],
-                findings: 1,
-                note: "Uploaded via College Portal & Analyzed by Pipeline",
-              }));
+    loadDossier();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationId]);
 
-            if (mappedCustomDocs.length > 0) {
-              setCustomDocs(mappedCustomDocs);
-            }
-          }
+  const application = dossier?.application ?? null;
+  const appDocs = dossier?.documents ?? [];
+  const appFindings = dossier?.findings ?? [];
+  const rules = dossier?.rules ?? [];
+  const verifications = dossier?.verifications ?? [];
+  const relevantAudit = dossier?.auditEntries ?? [];
+  const validationResults = dossier?.validationResults ?? [];
+  const rulebookVersion = dossier?.rulebookVersion ?? "—";
+  const latestValidation = validationResults[0]?.evaluated_at as string | undefined;
 
-          if (docData.anomalies && docData.anomalies.length > 0) {
-            const mappedCustomFindings: Finding[] = docData.anomalies.map((anom: any) => ({
-              id: anom.id || `anom-${Date.now()}-${Math.random()}`,
-              title:
-                anom.anomaly_type === "cross_institution_plagiarism"
-                  ? "Cross-Institution Document Plagiarism / Splicing Detected"
-                  : anom.anomaly_type === "duplicate"
-                  ? "Cross-Institution Duplicate SHA-256 Collision"
-                  : anom.anomaly_type === "image_tamper_ela"
-                  ? "OpenCV Error Level Analysis (ELA) Digital Tampering"
-                  : anom.reason?.slice(0, 48) || "Document Anomaly",
-              severity: (anom.severity as any) || "high",
-              ruleId: "EOA-PLAG-01",
-              ruleVersion: "2.0",
-              ruleType: "forensic_integrity",
-              documentId: anom.document_id,
-              documentLabel: "Uploaded Evidence",
-              page: anom.page_number || 1,
-              confidence: anom.confidence || 0.95,
-              description: anom.reason || "Integrity anomaly detected in document byte-stream.",
-              evidence: [
-                anom.reason || "Evidence anomaly flagged",
-                anom.evidence ? JSON.stringify(anom.evidence) : "Forensic analysis evidence",
-              ],
-              source: "ScrutiniX Forensic Pipeline",
-              timestamp: anom.flagged_at || new Date().toISOString(),
-              recommendation: "Depute Expert Visiting Committee (EVC) for on-site physical verification.",
-              bbox: anom.bbox,
-              status: "open",
-            }));
-
-            setAppFindings((prev) => {
-              const existingIds = new Set(prev.map((f) => f.id));
-              const newUnique = mappedCustomFindings.filter((f) => !existingIds.has(f.id));
-              return [...newUnique, ...prev];
-            });
-          }
-        }
-
-        // 2. Fetch AI reasoning & validation
-        const res = await fetch(`/api/validate/${application.id}`, { method: "POST" });
-        const data = await res.json();
-        if (data.ai_analysis) {
-          setAiAnalysis(data.ai_analysis);
-        }
-      } catch (err) {
-        console.error("Initial validation load failed:", err);
-      }
+  useEffect(() => {
+    if (appDocs.length > 0 && !appDocs.some((doc) => doc.id === selectedDocId)) {
+      setSelectedDocId(appDocs[0].id);
     }
-    loadInitialValidation();
-  }, [application?.id]);
+    if (appFindings.length > 0 && !appFindings.some((finding) => finding.id === selectedFindingId)) {
+      setSelectedFindingId(appFindings[0].id);
+    }
+  }, [appDocs, appFindings, selectedDocId, selectedFindingId]);
+
+  // Dossier data is loaded from the live database on mount; validation is only
+  // re-run when an officer explicitly asks for it.
 
   const selectedDoc = appDocs.find((doc) => doc.id === selectedDocId) ?? appDocs[0];
   const selectedFinding = appFindings.find((finding) => finding.id === selectedFindingId) ?? appFindings[0];
-  const docFindings = selectedDoc ? appFindings.filter((finding) => finding.documentId === selectedDoc.id) : [];
   const visibleFindings = findingFilter === "high" ? appFindings.filter((finding) => finding.severity === "high") : appFindings;
-  const status = applicationStatus[appStatus] || applicationStatus[application.status] || { label: "In Review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" };
-  const risk = riskLevel[appRisk] || riskLevel[application.risk] || { label: "Medium", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" };
+  const status = applicationStatus[appStatus] ?? { label: "Ready for review", className: "bg-pine-soft text-pine border-pine/15", dot: "bg-pine" };
+  const risk = riskLevel[appRisk] ?? { label: "Medium", className: "bg-ochre-soft text-ochre border-ochre/15", dot: "bg-ochre" };
   const selectedDocStatus = selectedDoc ? (documentStatus[selectedDoc.status] || documentStatus.manual_review) : null;
   const avgConfidence = selectedDoc?.extracted?.length
     ? selectedDoc.extracted.reduce((sum, field) => sum + field.confidence, 0) / selectedDoc.extracted.length
     : 0;
   const verifiedCount = verifications.filter((item) => item.status === "verified").length;
 
-  const relevantAudit = useMemo(() => auditEntries.slice(0, 5), []);
+  if (loading && !dossier) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex items-center gap-2 text-[12px] text-muted">
+          <Link href="/applications" className="flex items-center gap-1 hover:text-pine"><ArrowLeft className="h-3.5 w-3.5" /> Applications</Link>
+          <ChevronRight className="h-3 w-3 text-line-strong" />
+          <span className="mono">{applicationId}</span>
+        </div>
+        <div className="card mt-4 flex flex-col items-center justify-center px-6 py-20 text-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-muted" />
+          <div className="mt-3 text-[14px] font-semibold text-ink">Loading scrutiny dossier…</div>
+          <p className="mt-1 text-[12px] text-muted">Reading applications, documents, validation results and audit events.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !dossier) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex items-center gap-2 text-[12px] text-muted">
+          <Link href="/applications" className="flex items-center gap-1 hover:text-pine"><ArrowLeft className="h-3.5 w-3.5" /> Applications</Link>
+        </div>
+        <div className="card mt-4 flex flex-col items-center justify-center px-6 py-20 text-center">
+          <CircleAlert className="h-6 w-6 text-rust" />
+          <div className="mt-3 text-[14px] font-semibold text-ink">Could not load this application</div>
+          <p className="mt-1 max-w-md text-[12px] text-muted">{loadError}</p>
+          <button onClick={() => loadDossier()} className="btn btn-secondary mt-4"><RefreshCw className="h-3.5 w-3.5" /> Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex items-center gap-2 text-[12px] text-muted">
+          <Link href="/applications" className="flex items-center gap-1 hover:text-pine"><ArrowLeft className="h-3.5 w-3.5" /> Applications</Link>
+        </div>
+        <div className="card mt-4 flex flex-col items-center justify-center px-6 py-20 text-center">
+          <FileQuestion className="h-8 w-8 text-muted/60" />
+          <div className="mt-3 text-[14px] font-semibold text-ink">Application not found</div>
+          <p className="mt-1 text-[12px] text-muted">No application with ID <span className="mono">{applicationId}</span> exists in the database.</p>
+          <Link href="/applications" className="btn btn-secondary mt-4">Back to applications</Link>
+        </div>
+      </div>
+    );
+  }
 
   function openFinding(finding: Finding) {
     setSelectedFindingId(finding.id);
@@ -510,8 +478,44 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
   function acknowledgeFinding() {
     if (!drawerFinding) return;
     setAcknowledged((current) => current.includes(drawerFinding.id) ? current : [...current, drawerFinding.id]);
-    setToast(`${drawerFinding.id} acknowledged for human review. The action is sealed in the audit chain.`);
+    setToast(`${drawerFinding.id} acknowledged for this review session. Findings remain advisory until a decision is recorded.`);
     window.setTimeout(() => setDrawerOpen(false), 550);
+  }
+
+  async function requestMissingDocument() {
+    setRequestingDoc(true);
+    try {
+      const res = await fetch(`/api/applications/${applicationId}/request-document`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentType: selectedDoc?.status === "missing" ? selectedDoc.type : undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Unable to request document");
+      setToast(data?.message || "Missing-document request recorded.");
+      await loadDossier(false);
+    } catch (err: any) {
+      setToast(err?.message || "Unable to record the missing-document request.");
+    } finally {
+      setRequestingDoc(false);
+    }
+  }
+
+  async function downloadDocument() {
+    if (!selectedDoc) return;
+    if (selectedDoc.status === "missing") {
+      setToast("This document was not submitted, so there is no stored file to download.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/documents/${encodeURIComponent(selectedDoc.id)}/download`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Unable to prepare download");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      setToast(`Secure link opened for ${data.fileName || selectedDoc.fileName}. The link expires in two minutes.`);
+    } catch (err: any) {
+      setToast(err?.message || "Unable to download this document.");
+    }
   }
 
   async function rerun() {
@@ -521,65 +525,24 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
     try {
       const res = await fetch(`/api/validate/${application.id}`, { method: "POST" });
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Validation failed");
       const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-
-      if (data.findings && Array.isArray(data.findings)) {
-        const flagged = data.findings.filter((f: any) => f.status === "FAIL" || f.status === "REVIEW");
-        if (flagged.length > 0) {
-          const mapped: Finding[] = flagged.map((f: any, idx: number) => {
-            const rawBbox = f.evidence?.bbox || f.bbox;
-            const targetDoc = appDocs.find((d) => d.id === f.documentId) || selectedDoc;
-            return {
-              id: `FND-${application.id}-${f.ruleId}-${idx}`,
-              title: f.message || `Discrepancy on ${f.ruleId}`,
-              severity: (f.severity?.toLowerCase() === "critical" ? "high" : f.severity?.toLowerCase() || "medium") as FindingSeverity,
-              ruleId: f.ruleId,
-              ruleVersion: f.ruleVersion || "1.0",
-              ruleType: f.ruleType || "deterministic",
-              documentId: f.documentId || targetDoc?.id || "",
-              documentLabel: targetDoc?.label || "Statutory Document",
-              page: 1,
-              confidence: f.confidence || 0.95,
-              description: f.message || "Discrepancy detected during validation.",
-              evidence: Array.isArray(f.evidence) ? f.evidence : [JSON.stringify(f.evidence)],
-              source: "AICTE Regulatory Engine",
-              timestamp: new Date().toLocaleTimeString("en-IN") + " IST",
-              recommendation: "Officer review required.",
-              bbox: rawBbox ? {
-                x: rawBbox.x ?? 12,
-                y: rawBbox.y ?? 18,
-                w: rawBbox.w ?? rawBbox.width ?? 32,
-                h: rawBbox.h ?? rawBbox.height ?? 16,
-                label: rawBbox.label || f.message || "Flagged region",
-              } : undefined,
-              status: "open",
-            };
-          });
-          setAppFindings(mapped);
-          if (mapped[0]) {
-            setSelectedFindingId(mapped[0].id);
-            if (mapped[0].documentId) setSelectedDocId(mapped[0].documentId);
-          }
-        } else {
-          setAppFindings([]);
-        }
-      }
 
       if (data.overallRiskScore !== undefined) {
         setAppRisk(data.overallRiskScore > 0.6 ? "high" : data.overallRiskScore > 0.2 ? "medium" : "low");
       }
       if (data.flagsCount !== undefined) {
-        setAppStatus(data.flagsCount > 0 ? "findings_ready" : "ready_for_decision");
+        setAppStatus(data.flagsCount > 0 ? "findings_available" : "ready_for_review");
       }
       if (data.ai_analysis) {
         setAiAnalysis(data.ai_analysis);
       }
 
-      setToast(`Validation re-run complete: ${data.rulesEvaluated ?? 12} rules evaluated, ${data.flagsCount ?? 0} findings raised in ${elapsed}s.`);
+      await loadDossier(false);
+      setToast(`Validation re-run complete: ${data.rulesEvaluated ?? rules.length} rules evaluated, ${data.flagsCount ?? 0} findings raised in ${elapsed}s.`);
     } catch (err: any) {
       console.error("Validation re-run error:", err);
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-      setToast(`Validation re-run complete: 15 rules evaluated, 0 findings raised in ${elapsed}s.`);
+      setToast(err?.message || "Validation re-run failed. The dossier was not changed.");
     } finally {
       setRerunning(false);
     }
@@ -615,7 +578,6 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button onClick={() => openDecision("clarification")} className="btn btn-secondary"><MessageSquareWarning className="h-3.5 w-3.5" /> Request clarification</button>
           <button onClick={() => openDecision("accept")} className="btn btn-primary"><ClipboardIcon /> Record decision</button>
-          <button className="btn btn-secondary h-9 w-9 px-0" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></button>
         </div>
       </div>
 
@@ -624,7 +586,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
         <span className="chip border-line bg-paper text-muted"><FileText className="h-3.5 w-3.5" /> {application.documentsReceived}/{application.documentsTotal} documents</span>
         <span className="chip border-line bg-paper text-muted"><ShieldAlert className="h-3.5 w-3.5 text-ochre" /> {appFindings.length} findings · {appFindings.filter((item) => item.severity === "high").length} high</span>
         <span className="chip border-line bg-paper text-muted"><QrCode className="h-3.5 w-3.5 text-pine" /> {verifiedCount} sources verified</span>
-        <span className="chip border-line bg-paper text-muted"><Clock3 className="h-3.5 w-3.5" /> Last run 11:07 IST</span>
+        <span className="chip border-line bg-paper text-muted"><Clock3 className="h-3.5 w-3.5" /> Last run {latestValidation ? new Date(latestValidation).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) + " IST" : "—"}</span>
         <span className="ml-auto flex items-center gap-1.5 text-[11.5px] text-muted"><ShieldCheck className="h-3.5 w-3.5 text-pine" /> Advisory support · human decision required</span>
       </div>
 
@@ -650,7 +612,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
           ))}
         </div>
         <div className="flex items-center gap-2 pb-2">
-          <span className="hidden text-[11.5px] text-muted sm:inline">Checklist v1.4</span>
+          <span className="hidden text-[11.5px] text-muted sm:inline">Checklist v{rulebookVersion}</span>
           <button onClick={rerun} disabled={rerunning} className="flex items-center gap-1.5 text-[12px] font-semibold text-pine hover:text-pine-deep disabled:opacity-50">
             <RefreshCw className={cn("h-3 w-3", rerunning && "animate-spin")} /> {rerunning ? "Re-running…" : "Re-run validation"}
           </button>
@@ -662,13 +624,12 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
           <aside className="card self-start overflow-hidden">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <div className="flex items-baseline gap-2"><h2 className="text-[13px] font-semibold">Application file</h2><span className="mono text-[11px] text-muted">{application.documentsReceived}/{application.documentsTotal}</span></div>
-              <button className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-paper" aria-label="File actions"><MoreHorizontal className="h-3.5 w-3.5" /></button>
             </div>
             <div className="p-2">
               {appDocs.map((doc) => {
                 const docStatus = documentStatus[doc.status] || documentStatus.manual_review || { label: "Review", className: "bg-slate-soft text-slate", dot: "bg-slate" };
                 const Icon = docIcons[doc.type as keyof typeof docIcons] ?? FileText;
-                const active = selectedDoc.id === doc.id;
+                const active = selectedDoc?.id === doc.id;
                 return (
                   <button
                     key={doc.id}
@@ -697,25 +658,29 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
             <div className="border-t border-line px-4 py-3">
               <div className="flex items-center justify-between">
                 <span className="eyebrow text-[11px]">Source checks</span>
-                <span className="mono text-[11px] text-muted">{verifiedCount} of 5</span>
+                <span className="mono text-[11px] text-muted">{verifiedCount} of {verifications.length}</span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ebe6db]"><div className="h-full rounded-full bg-pine" style={{ width: `${(verifiedCount / 5) * 100}%` }} /></div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#ebe6db]"><div className="h-full rounded-full bg-pine" style={{ width: `${verifications.length > 0 ? (verifiedCount / verifications.length) * 100 : 0}%` }} /></div>
               <div className="mt-3 space-y-2">
-                {verifications.slice(0, 4).map((item) => {
-                  const doc = documents.find((document) => document.id === item.documentId);
-                  const statusItem = verificationStatus[item.status] || verificationStatus.verification_pending || { label: "Pending", className: "bg-slate-soft text-slate", dot: "bg-slate" };
-                  return (
-                    <button key={item.documentId} onClick={() => setSelectedDocId(item.documentId)} className="flex w-full items-center gap-2 text-left">
-                      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", statusItem.dot)} />
-                      <span className="min-w-0 flex-1 truncate text-[12px] text-muted">{doc?.label}</span>
-                      <span className={cn("text-[11px] font-medium", item.status === "verified" ? "text-pine" : item.status === "expired" ? "text-rust" : "text-slate")}>{statusItem.label}</span>
-                    </button>
-                  );
-                })}
+                {verifications.length === 0 ? (
+                  <p className="text-[11.5px] text-muted">No issuer verification runs recorded yet.</p>
+                ) : (
+                  verifications.slice(0, 4).map((item) => {
+                    const doc = appDocs.find((document) => document.id === item.documentId);
+                    const statusItem = verificationStatus[item.status] || verificationStatus.verification_pending || { label: "Pending", className: "bg-slate-soft text-slate", dot: "bg-slate" };
+                    return (
+                      <button key={item.documentId} onClick={() => setSelectedDocId(item.documentId)} className="flex w-full items-center gap-2 text-left">
+                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", statusItem.dot)} />
+                        <span className="min-w-0 flex-1 truncate text-[12px] text-muted">{doc?.label || item.documentId}</span>
+                        <span className={cn("text-[11px] font-medium", item.status === "verified" ? "text-pine" : item.status === "expired" ? "text-rust" : "text-slate")}>{statusItem.label}</span>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
-            <button onClick={() => setToast("Missing-document request queued. The institution will be notified in-app.")} className="flex w-full items-center justify-center gap-1.5 border-t border-line bg-[#faf8f2] py-2.5 text-[12px] font-semibold text-pine transition-colors hover:bg-pine-soft/40">
-              <Upload className="h-3.5 w-3.5" /> Request missing document
+            <button onClick={requestMissingDocument} disabled={requestingDoc} className="flex w-full items-center justify-center gap-1.5 border-t border-line bg-[#faf8f2] py-2.5 text-[12px] font-semibold text-pine transition-colors hover:bg-pine-soft/40 disabled:opacity-60">
+              {requestingDoc ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Request missing document
             </button>
           </aside>
 
@@ -756,7 +721,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                       <button onClick={() => setZoom((current) => Math.max(0.8, Number((current - 0.1).toFixed(1))))} className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-paper hover:text-ink" aria-label="Zoom out"><ZoomOut className="h-3.5 w-3.5" /></button>
                       <span className="mono w-8 text-center text-[11px] text-muted">{Math.round(zoom * 100)}%</span>
                       <button onClick={() => setZoom((current) => Math.min(1.4, Number((current + 0.1).toFixed(1))))} className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-paper hover:text-ink" aria-label="Zoom in"><ZoomIn className="h-3.5 w-3.5" /></button>
-                      <button className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-paper hover:text-ink" aria-label="Download document"><Download className="h-3.5 w-3.5" /></button>
+                      <button onClick={downloadDocument} className="flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-paper hover:text-ink" aria-label="Download document"><Download className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
                   <div className="bg-[#e9e4d8] p-2.5 sm:p-3">
@@ -805,7 +770,7 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                   )}
                   <div className="flex items-center justify-between border-t border-line bg-[#faf8f2] px-4 py-2 text-[11px] text-muted">
                     <span>Deterministic extraction · no hosted LLM</span>
-                    <button className="flex items-center gap-1 font-medium text-pine hover:underline">View provenance <ArrowUpRight className="h-3 w-3" /></button>
+                    <button onClick={() => setActiveTab("audit")} className="flex items-center gap-1 font-medium text-pine hover:underline">View provenance <ArrowUpRight className="h-3 w-3" /></button>
                   </div>
                 </section>
               </>
@@ -822,7 +787,6 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                 Verification <span className="mono rounded bg-[#eeeae0] px-1.5 py-0.5 text-[11px] text-muted">{verifications.length}</span>
                 {rightTab === "verification" ? <span className="absolute inset-x-2 -bottom-px h-[2px] bg-pine" /> : null}
               </button>
-              <span className="ml-auto pb-2.5"><button className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-paper" aria-label="Filter"><MoreHorizontal className="h-3.5 w-3.5" /></button></span>
             </div>
 
             {rightTab === "findings" ? (
@@ -918,49 +882,69 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
               </>
             ) : (
               <div className="max-h-[590px] divide-y divide-line overflow-y-auto thin-scroll">
-                {verifications.map((item) => {
-                  const doc = documents.find((document) => document.id === item.documentId);
-                  const statusItem = verificationStatus[item.status] || verificationStatus.verification_pending || { label: "Pending", className: "bg-slate-soft text-slate", dot: "bg-slate" };
-                  return (
-                    <button key={item.documentId} onClick={() => setSelectedDocId(item.documentId)} className="group block w-full px-3.5 py-3 text-left transition-colors hover:bg-paper">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-[13px] font-semibold">{doc?.label}</div>
-                          <div className="mt-0.5 truncate text-[11px] text-muted">{item.adapter}</div>
+                {verifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-[12px] text-muted">No issuer verification results recorded for this application.</div>
+                ) : (
+                  verifications.map((item) => {
+                    const doc = appDocs.find((document) => document.id === item.documentId);
+                    const statusItem = verificationStatus[item.status] || verificationStatus.verification_pending || { label: "Pending", className: "bg-slate-soft text-slate", dot: "bg-slate" };
+                    return (
+                      <button key={`${item.documentId}-${item.adapter}`} onClick={() => setSelectedDocId(item.documentId)} className="group block w-full px-3.5 py-3 text-left transition-colors hover:bg-paper">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-[13px] font-semibold">{doc?.label || item.documentId}</div>
+                            <div className="mt-0.5 truncate text-[11px] text-muted">{item.adapter}</div>
+                          </div>
+                          <span className={cn("chip shrink-0 border", statusItem.className)}><span className={cn("h-1.5 w-1.5 rounded-full", statusItem.dot)} />{statusItem.label}</span>
                         </div>
-                        <span className={cn("chip shrink-0 border", statusItem.className)}><span className={cn("h-1.5 w-1.5 rounded-full", statusItem.dot)} />{statusItem.label}</span>
-                      </div>
-                      <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">{item.detail}</p>
-                      <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
-                        <span className="mono">{item.reference}</span>
-                        <span>{item.checkedAt} IST</span>
-                      </div>
-                    </button>
-                  );
-                })}
+                        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">{item.detail}</p>
+                        <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted">
+                          <span className="mono">{item.reference}</span>
+                          <span>{item.checkedAt}</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
                 <div className="px-3.5 py-3">
-                  <button className="btn btn-secondary h-9 w-full text-[12.5px]"><RefreshCw className="h-3.5 w-3.5" /> Retry unavailable sources</button>
+                  <button
+                    onClick={async () => {
+                      await loadDossier(false);
+                      setToast("Issuer verification results reloaded from the database.");
+                    }}
+                    className="btn btn-secondary h-9 w-full text-[12.5px]"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Reload verification results
+                  </button>
                 </div>
               </div>
             )}
           </aside>
         </div>
       ) : activeTab === "report" ? (
-        <ValidationReport application={application} appFindings={appFindings} onRerun={rerun} rerunning={rerunning} />
+        <ValidationReport
+          application={application}
+          appFindings={appFindings}
+          rules={rules}
+          rulebookVersion={rulebookVersion}
+          validationResults={validationResults}
+          onRerun={rerun}
+          rerunning={rerunning}
+        />
       ) : (
-        <AuditScope application={application} />
+        <AuditScope application={application} entries={relevantAudit} />
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-dashed border-line-strong bg-[#f8f5ee]/70 px-4 py-2.5 text-[12px] text-muted">
-        <span className="flex items-center gap-1.5"><Fingerprint className="h-3.5 w-3.5 text-pine" /> Application hash <span className="mono text-ink">c2a7…19f4</span></span>
-        <span className="flex items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5 text-pine" /> Audit trail intact</span>
+        <span className="flex items-center gap-1.5"><Fingerprint className="h-3.5 w-3.5 text-pine" /> Primary document hash <span className="mono text-ink">{appDocs.find((doc) => doc.status !== "missing")?.hash?.slice(0, 8) ?? "—"}…</span></span>
+        <span className="flex items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5 text-pine" /> {relevantAudit.length} scoped audit entries</span>
         <span className="flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> Document views are logged</span>
-        <span className="ml-auto font-mono text-[10.5px]">REFERENCE DATE 27 OCT 2026</span>
+        <span className="ml-auto font-mono text-[10.5px]">REFERENCE DATE {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase()}</span>
       </div>
 
       <ExplainabilityDrawer
         finding={drawerFinding}
-        document={drawerFinding ? documents.find((doc) => doc.id === drawerFinding.documentId) ?? null : null}
+        document={drawerFinding ? appDocs.find((doc) => doc.id === drawerFinding.documentId) ?? null : null}
         open={drawerOpen}
         acknowledged={drawerFinding ? acknowledged.includes(drawerFinding.id) : false}
         onClose={() => setDrawerOpen(false)}
@@ -972,8 +956,9 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
         application={application}
         initialDecision={initialDecision}
         onClose={() => setDecisionOpen(false)}
-        onRecorded={(decision) => {
-          setToast(`Decision “${decision.replaceAll("_", " ")}” recorded by A. Menon. Sealed as audit entry #1285.`);
+        onRecorded={async (decision) => {
+          setToast(`Decision “${decision.replaceAll("_", " ")}” recorded for ${application.id}.`);
+          await loadDossier(false);
         }}
       />
 

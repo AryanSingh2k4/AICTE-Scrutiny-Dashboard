@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";
-import type { Application } from "@/lib/types";
+import { fetchApplications } from "@/lib/officer/data";
 
 export const dynamic = "force-dynamic";
 
@@ -54,90 +54,11 @@ const COLLEGE_META: Record<string, { name: string; shortName: string; city: stri
 
 export async function GET() {
   try {
-    const supabase = getServerSupabase();
-    const { data: dbApps, error } = await supabase
-      .from("applications")
-      .select("id, system_status, overall_risk_score, flags_count, submitted_at, institution_id, institutions(name, city, state, trust_society)")
-      .order("submitted_at", { ascending: false });
-
-    if (error) {
-      console.warn("Supabase fetch applications notice:", error.message);
-      return NextResponse.json({ applications: [] });
-    }
-
-    if (!dbApps || dbApps.length === 0) {
-      return NextResponse.json({ applications: [] });
-    }
-
-    // Count uploaded documents and anomaly flags directly per application
-    const [{ data: dbDocs }, { data: dbFlags }] = await Promise.all([
-      supabase.from("documents").select("application_id"),
-      supabase.from("anomaly_flags").select("application_id, severity"),
-    ]);
-
-    const docCounts: Record<string, number> = {};
-    if (dbDocs) {
-      for (const d of dbDocs) {
-        docCounts[d.application_id] = (docCounts[d.application_id] || 0) + 1;
-      }
-    }
-
-    const flagCounts: Record<string, number> = {};
-    const highFlagCounts: Record<string, number> = {};
-    if (dbFlags) {
-      for (const f of dbFlags) {
-        flagCounts[f.application_id] = (flagCounts[f.application_id] || 0) + 1;
-        if (f.severity === "high" || f.severity === "critical") {
-          highFlagCounts[f.application_id] = (highFlagCounts[f.application_id] || 0) + 1;
-        }
-      }
-    }
-
-    const applications: Application[] = dbApps.map((app: any) => {
-      const meta = COLLEGE_META[app.id] || {
-        name: app.institutions?.name || app.id,
-        shortName: app.id.replace("APP-2026-", ""),
-        city: app.institutions?.city || "Maharashtra",
-        state: app.institutions?.state || "Maharashtra",
-        programme: "Technical Engineering",
-        intake: 300,
-        trust: app.institutions?.trust_society || "Educational Trust",
-        pid: app.institution_id,
-      };
-
-      const docCount = docCounts[app.id] || 0;
-      const flags = flagCounts[app.id] ?? (app.flags_count || 0);
-      const highFlags = highFlagCounts[app.id] ?? (flags > 0 ? 1 : 0);
-      const risk: "high" | "medium" | "low" = flags > 0 ? "high" : "low";
-
-      const submittedDate = app.submitted_at ? new Date(app.submitted_at) : new Date();
-
-      return {
-        id: app.id,
-        institution: meta.name,
-        shortName: meta.shortName,
-        city: meta.city,
-        state: meta.state,
-        programme: meta.programme,
-        intake: meta.intake,
-        trust: meta.trust,
-        submittedAt: submittedDate.toISOString(),
-        submittedLabel: `Today · ${submittedDate.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} IST`,
-        documentsTotal: 5,
-        documentsReceived: docCount,
-        findings: flags,
-        highFindings: highFlags,
-        status: flags > 0 ? "findings_available" : ((app.system_status as any) || "ready_for_review"),
-        risk,
-        officer: "Dr. Ananya Menon",
-        lastAction: flags > 0 ? `${flags} potential issues detected` : "All regulatory pre-checks passed",
-      };
-    });
-
+    const applications = await fetchApplications();
     return NextResponse.json({ applications });
   } catch (err: any) {
     console.error("GET /api/applications error:", err);
-    return NextResponse.json({ applications: [] });
+    return NextResponse.json({ applications: [], error: err?.message }, { status: 500 });
   }
 }
 

@@ -15,7 +15,6 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { applications } from "@/lib/mock-data";
 import { applicationStatus, cn, riskLevel } from "@/lib/display";
 import type { Application, ApplicationStatus, RiskLevel } from "@/lib/types";
 import { PageHeader } from "@/components/ui";
@@ -42,24 +41,68 @@ export default function ApplicationsPage() {
   const [status, setStatus] = useState<"all" | ApplicationStatus>("all");
   const [risk, setRisk] = useState<"all" | RiskLevel>("all");
   const [sortNewest, setSortNewest] = useState(true);
-  const [apps, setApps] = useState<Application[]>(applications);
+  const [apps, setApps] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadApplications() {
+      setLoading(true);
+      setLoadError(null);
       try {
-        const res = await fetch("/api/applications");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.applications)) {
-            setApps(data.applications);
-          }
-        }
-      } catch (err) {
-        console.warn("Notice loading dynamic applications:", err);
+        const res = await fetch("/api/applications", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Unable to load applications");
+        setApps(Array.isArray(data.applications) ? data.applications : []);
+      } catch (err: any) {
+        console.error("Failed to load applications:", err);
+        setLoadError(err?.message || "Unable to load applications");
+      } finally {
+        setLoading(false);
       }
     }
     loadApplications();
   }, []);
+
+  const medianAge = useMemo(() => {
+    if (apps.length === 0) return "—";
+    const ages = apps
+      .map((app) => (Date.now() - new Date(app.submittedAt).getTime()) / 86_400_000)
+      .filter((value) => Number.isFinite(value) && value >= 0)
+      .sort((a, b) => a - b);
+    if (ages.length === 0) return "—";
+    const median = ages[Math.floor(ages.length / 2)];
+    return median < 1 ? `${Math.round(median * 24)}h` : `${median.toFixed(1)}d`;
+  }, [apps]);
+
+  function exportCsv() {
+    const header = ["Application", "Institution", "Programme", "City", "State", "Submitted", "Status", "Risk", "Findings", "High findings", "Documents received", "Documents expected", "Officer"];
+    const rows = filtered.map((app) => [
+      app.id,
+      app.institution,
+      app.programme,
+      app.city,
+      app.state,
+      app.submittedAt,
+      app.status,
+      app.risk,
+      String(app.findings),
+      String(app.highFindings),
+      String(app.documentsReceived),
+      String(app.documentsTotal),
+      app.officer,
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `applications-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
@@ -78,12 +121,12 @@ export default function ApplicationsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow={`EoA Renewal 2026–27 · ${apps.length} applications`}
+        eyebrow={`EoA Renewal 2026–27 · ${loading ? "loading…" : `${apps.length} applications`}`}
         title="Applications"
         description="Every submitted file, its evidence state, and the next human action. Sorted by scrutiny priority."
         actions={
           <>
-            <button className="btn btn-secondary">
+            <button className="btn btn-secondary" onClick={exportCsv} disabled={apps.length === 0}>
               <Download className="h-3.5 w-3.5" />
               Export CSV
             </button>
@@ -95,12 +138,18 @@ export default function ApplicationsPage() {
         }
       />
 
+        {loadError ? (
+          <div className="mt-4 rounded-md border border-rust/25 bg-rust-soft px-4 py-3 text-[12.5px] text-rust">
+            <span className="font-semibold">Could not load applications.</span> {loadError}
+          </div>
+        ) : null}
+
       <div className="card mt-6 grid grid-cols-2 divide-x divide-y divide-line overflow-hidden lg:grid-cols-4 lg:divide-y-0">
         {[
           { label: "Total applications", value: String(apps.length), detail: "registered", icon: Inbox, tone: "text-ink" },
-          { label: "Findings ready", value: String(apps.filter((a) => a.status === "findings_ready").length), detail: "awaiting officer", icon: CheckCircle2, tone: "text-ochre" },
-          { label: "Ready for decision", value: String(apps.filter((a) => a.status === "ready_for_decision").length), detail: "no blocking issues", icon: ArrowRight, tone: "text-pine" },
-          { label: "Median file age", value: "—", detail: "submission → decision", icon: Clock3, tone: "text-ink" },
+          { label: "Findings ready", value: String(apps.filter((a) => a.status === "findings_ready" || a.status === "findings_available").length), detail: "awaiting officer", icon: CheckCircle2, tone: "text-ochre" },
+          { label: "High risk", value: String(apps.filter((a) => a.risk === "high").length), detail: "priority files", icon: ArrowRight, tone: "text-pine" },
+          { label: "Median file age", value: medianAge, detail: "submission → now", icon: Clock3, tone: "text-ink" },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -228,7 +277,7 @@ export default function ApplicationsPage() {
                           {app.documentsReceived}<span className="text-muted">/{app.documentsTotal}</span>
                         </span>
                         <div className="h-1.5 w-12 overflow-hidden rounded-full bg-[#ebe6db]">
-                          <div className={cn("h-full rounded-full", app.documentsReceived < app.documentsTotal ? "bg-ochre" : "bg-pine")} style={{ width: `${(app.documentsReceived / app.documentsTotal) * 100}%` }} />
+                          <div className={cn("h-full rounded-full", app.documentsReceived < app.documentsTotal ? "bg-ochre" : "bg-pine")} style={{ width: `${app.documentsTotal > 0 ? Math.min((app.documentsReceived / app.documentsTotal) * 100, 100) : 0}%` }} />
                         </div>
                       </div>
                       {app.documentsReceived < app.documentsTotal ? <span className="mt-1 block text-[11px] text-ochre">missing item</span> : <span className="mt-1 block text-[11px] text-muted">complete</span>}
@@ -276,8 +325,8 @@ export default function ApplicationsPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper text-muted"><Search className="h-4 w-4" /></div>
-            <div className="mt-3 text-[13px] font-semibold">{apps.length === 0 ? "No applications registered yet" : "No applications match those filters"}</div>
-            <p className="mt-1 text-[11px] text-muted">{apps.length === 0 ? "Applications submitted by institutions will appear here." : "Try a different status, risk level or search term."}</p>
+            <div className="mt-3 text-[13px] font-semibold">{loading ? "Loading applications…" : apps.length === 0 ? "No applications registered yet" : "No applications match those filters"}</div>
+            <p className="mt-1 text-[11px] text-muted">{loading ? "Reading the live scrutiny register." : apps.length === 0 ? "Applications submitted by institutions will appear here." : "Try a different status, risk level or search term."}</p>
             {hasFilters ? <button onClick={() => { setQuery(""); setStatus("all"); setRisk("all"); }} className="btn btn-secondary mt-4">Reset filters</button> : null}
           </div>
         ) : null}

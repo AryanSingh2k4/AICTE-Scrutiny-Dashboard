@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import type { Application } from "@/lib/types";
+import { CURRENT_OFFICER } from "@/lib/officer/identity";
 import { cn } from "@/lib/display";
 
 export type DecisionType = "accept" | "clarification" | "inspection" | "reject";
@@ -77,6 +78,7 @@ export function DecisionDialog({
   const [confirmed, setConfirmed] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sealedInfo, setSealedInfo] = useState<{ message?: string; sequence?: string; timestamp?: string } | null>(null);
 
   useEffect(() => {
@@ -86,6 +88,7 @@ export function DecisionDialog({
       setConfirmed(false);
       setSubmitted(false);
       setRecording(false);
+      setError(null);
       setSealedInfo(null);
     }
   }, [initialDecision, open]);
@@ -95,6 +98,7 @@ export function DecisionDialog({
   async function record() {
     if (!confirmed) return;
     setRecording(true);
+    setError(null);
     try {
       const remarksText = reason.trim() || `Officer outcome ${decision} recorded under AICTE 2026–27 regulations.`;
       const res = await fetch("/api/decisions", {
@@ -104,8 +108,8 @@ export function DecisionDialog({
           applicationId: application.id,
           outcome: decision,
           remarks: remarksText,
-          officerName: "Dr. Ananya Menon",
-          officerRole: "scrutiny_officer",
+          officerName: CURRENT_OFFICER.name,
+          officerRole: CURRENT_OFFICER.role,
         }),
       });
 
@@ -116,7 +120,7 @@ export function DecisionDialog({
 
       setSealedInfo({
         message: data.message || `Officer outcome '${decision}' formally recorded and cryptographically sealed into audit trail.`,
-        sequence: data.decision?.id ? `#${data.decision.id.slice(0, 8)}` : "#1285",
+        sequence: data.decision?.id ? `#${data.decision.id.slice(0, 8)}` : "—",
         timestamp: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " IST",
       });
 
@@ -124,14 +128,7 @@ export function DecisionDialog({
       onRecorded(decision);
     } catch (err: any) {
       console.error("Decision recording error:", err);
-      // Fallback seal so officer workflow completes gracefully
-      setSealedInfo({
-        message: `Officer outcome '${decision}' formally recorded and cryptographically sealed into audit trail.`,
-        sequence: "#1285",
-        timestamp: new Date().toLocaleTimeString("en-IN") + " IST",
-      });
-      setSubmitted(true);
-      onRecorded(decision);
+      setError(err?.message || "The decision could not be recorded. Nothing was written to the database.");
     } finally {
       setRecording(false);
     }
@@ -153,9 +150,9 @@ export function DecisionDialog({
               {decision === "reject" && "A final adverse outcome has been recorded against the application."}
             </p>
             <div className="mx-auto mt-5 max-w-[360px] rounded-lg border border-line bg-[#f7f4ec] px-4 py-3 text-left">
-              <div className="flex items-center justify-between text-[12px] text-muted"><span>Audit sequence</span><span className="mono text-ink">{sealedInfo?.sequence || "#1285"}</span></div>
-              <div className="mt-1.5 flex items-center justify-between text-[12px] text-muted"><span>Sealed at</span><span className="mono text-ink">{sealedInfo?.timestamp || "27 Oct 2026, 11:48:22 IST"}</span></div>
-              <div className="mt-1.5 flex items-center justify-between text-[12px] text-muted"><span>Officer</span><span className="text-ink font-medium">Dr. Ananya Menon</span></div>
+              <div className="flex items-center justify-between text-[12px] text-muted"><span>Audit sequence</span><span className="mono text-ink">{sealedInfo?.sequence || "—"}</span></div>
+              <div className="mt-1.5 flex items-center justify-between text-[12px] text-muted"><span>Sealed at</span><span className="mono text-ink">{sealedInfo?.timestamp || "—"}</span></div>
+              <div className="mt-1.5 flex items-center justify-between text-[12px] text-muted"><span>Officer</span><span className="text-ink font-medium">{CURRENT_OFFICER.name}</span></div>
             </div>
             <div className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px] text-muted">
               <LockKeyhole className="h-3.5 w-3.5 text-pine" /> Sealed in the append-only audit chain
@@ -224,6 +221,12 @@ export function DecisionDialog({
                   className="min-h-[82px] w-full resize-none rounded-md border border-line-strong bg-surface px-3 py-2.5 text-[13px] leading-relaxed outline-none placeholder:text-[#a2a399] focus:border-pine focus:ring-2 focus:ring-pine/10"
                 />
               </div>
+
+              {error ? (
+                <div className="mt-3 rounded-md border border-rust/25 bg-rust-soft px-3.5 py-2.5 text-[12px] text-rust">
+                  {error}
+                </div>
+              ) : null}
 
               <label className="mt-3 flex cursor-pointer items-start gap-2.5">
                 <input

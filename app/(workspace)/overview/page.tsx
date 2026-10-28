@@ -13,23 +13,15 @@ import {
   FileWarning,
   Inbox,
   MoreHorizontal,
+  RefreshCw,
   ShieldCheck,
   TrendingDown,
 } from "lucide-react";
-import {
-  activityFeed,
-  applications,
-  auditEntries,
-  dashboardMetrics,
-  reviewQueue,
-  signalData,
-  sourceHealth,
-  throughputData,
-} from "@/lib/mock-data";
 import { cn } from "@/lib/display";
 import { ConfidenceMeter, PageHeader, RiskChip, SectionHeading, Sparkline } from "@/components/ui";
 import { ThroughputChart } from "@/components/overview-charts";
 import type { Application } from "@/lib/types";
+import type { OfficerOverview } from "@/lib/officer/data";
 
 const toneMap = {
   pine: { chip: "bg-pine-soft text-pine", spark: "#1c5444" },
@@ -38,85 +30,157 @@ const toneMap = {
   neutral: { chip: "bg-[#e8e4d8] text-ink", spark: "#4d544e" },
 };
 
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-IN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+function shortTime(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+}
+
 export default function OverviewPage() {
   const [tab, setTab] = useState<"all" | "high" | "source" | "review">("all");
-  const [apps, setApps] = useState<Application[]>(applications);
+  const [data, setData] = useState<OfficerOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadOverview() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/officer/overview", { cache: "no-store" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "Unable to load overview");
+      setData(payload as OfficerOverview);
+    } catch (err: any) {
+      console.error("Failed to load officer overview:", err);
+      setError(err?.message || "Unable to load overview");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function loadApplications() {
-      try {
-        const res = await fetch("/api/applications");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.applications)) {
-            setApps(data.applications);
-          }
-        }
-      } catch (err) {
-        console.warn("Notice loading dynamic applications:", err);
-      }
-    }
-    loadApplications();
+    loadOverview();
   }, []);
 
-  const visibleApplications = apps
-    .filter((app) => {
-      if (tab === "high") return app.risk === "high";
-      if (tab === "source") return app.status === "awaiting_source";
-      if (tab === "review") return app.status === "in_review";
-      return true;
-    })
-    .slice(0, 5);
+  const apps: Application[] = data?.applications ?? [];
+  const reviewQueue = data?.reviewQueue ?? [];
+  const throughput = data?.throughput ?? [];
+  const signals = data?.signals ?? [];
+  const activity = data?.activity ?? [];
+  const sourceHealth = data?.sourceHealth ?? [];
+  const rules = data?.rules ?? { total: 0, active: 0, version: "—", updatedAt: null };
+  const audit = data?.audit ?? { totalEntries: 0, lastSealedAt: null, lastHash: null };
+
+  const visibleApplications = useMemo(
+    () =>
+      apps
+        .filter((app) => {
+          if (tab === "high") return app.risk === "high";
+          if (tab === "source") return app.status === "awaiting_source";
+          if (tab === "review") return app.status === "in_review" || app.status === "findings_available";
+          return true;
+        })
+        .slice(0, 5),
+    [apps, tab]
+  );
 
   const dynamicMetrics = useMemo(() => {
     const active = apps.length;
-    const reviewNeeded = apps.filter((a) => a.findings > 0 || a.risk === "high").length;
-    const anomalies = apps.reduce((sum, a) => sum + (a.findings || 0), 0);
+    const anomalies = apps.reduce((sum, app) => sum + (app.findings || 0), 0);
+    const highRisk = apps.filter((app) => app.risk === "high").length;
     return [
       {
         label: "Active applications",
         value: String(active),
         delta: active > 0 ? `${active} registered` : "0 registered",
-        detail: active > 0 ? `${active} institution(s) submitted` : "Awaiting college submissions",
+        detail: active > 0 ? `${new Set(apps.map((app) => app.institution)).size} institution(s) submitted` : "Awaiting college submissions",
         tone: active > 0 ? "pine" : "neutral",
-        series: [active, active, active, active, active],
+        series: [Math.max(active - 2, 0), Math.max(active - 1, 0), active, active],
       },
       {
         label: "Needs human review",
-        value: String(reviewNeeded),
-        delta: reviewNeeded > 0 ? `${reviewNeeded} triage items` : "Queue clear",
-        detail: reviewNeeded > 0 ? "Potential discrepancies" : "0 pending triage items",
-        tone: reviewNeeded > 0 ? "ochre" : "pine",
-        series: [reviewNeeded, reviewNeeded, reviewNeeded, reviewNeeded],
+        value: String(reviewQueue.length),
+        delta: reviewQueue.length > 0 ? `${reviewQueue.length} triage items` : "Queue clear",
+        detail: reviewQueue.length > 0 ? `${highRisk} high-risk file(s)` : "0 pending triage items",
+        tone: reviewQueue.length > 0 ? "ochre" : "pine",
+        series: [reviewQueue.length, reviewQueue.length, reviewQueue.length, reviewQueue.length],
       },
       {
         label: "Possible anomalies",
         value: String(anomalies),
         delta: anomalies > 0 ? `${anomalies} flags` : "0 flags",
-        detail: anomalies > 0 ? "Forensic alerts raised" : "Ready for scrutiny",
+        detail: anomalies > 0 ? `${signals.length} signal families` : "Ready for scrutiny",
         tone: anomalies > 0 ? "rust" : "neutral",
-        series: [anomalies, anomalies, anomalies, anomalies],
+        series: [Math.max(anomalies - 2, 0), Math.max(anomalies - 1, 0), anomalies, anomalies],
       },
       {
-        label: "Median scrutiny time",
-        value: active > 0 ? "0.4s" : "0.0s",
-        delta: "Instant verification",
-        detail: "Automated VPS pipeline",
+        label: "Active rules",
+        value: String(rules.active),
+        delta: rules.version !== "—" ? `v${rules.version}` : "Not seeded",
+        detail: `${rules.total} rule(s) in rulebook`,
         tone: "pine",
-        series: [0.4, 0.4, 0.4, 0.4],
+        series: [Math.max(rules.active - 2, 0), Math.max(rules.active - 1, 0), rules.active, rules.active],
       },
     ];
-  }, [apps]);
+  }, [apps, reviewQueue, signals.length, rules]);
+
+  const maxSignal = Math.max(1, ...signals.map((signal) => signal.count));
+  const totalValidated = throughput.reduce((acc, item) => acc + item.validated, 0);
+  const totalManual = throughput.reduce((acc, item) => acc + item.manual, 0);
+
+  function exportBrief() {
+    const header = ["Application", "Institution", "Status", "Risk", "Findings", "High findings", "Documents", "Submitted"];
+    const rows = apps.map((app) => [
+      app.id,
+      app.institution,
+      app.status,
+      app.risk,
+      String(app.findings),
+      String(app.highFindings),
+      `${app.documentsReceived}/${app.documentsTotal}`,
+      app.submittedAt,
+    ]);
+    const csv = [header, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `scrutiny-brief-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow="Tuesday, 27 October 2026 · 11:42 IST"
+        eyebrow={data ? `${formatTimestamp(data.generatedAt)} IST` : "Loading live desk data…"}
         title="Scrutiny overview"
         description="A live view of EoA Renewal applications, evidence gaps and the items that need a human decision."
         actions={
           <>
-            <button className="btn btn-secondary">
+            <button className="btn btn-secondary" onClick={loadOverview} disabled={loading}>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              Refresh
+            </button>
+            <button className="btn btn-secondary" onClick={exportBrief} disabled={apps.length === 0}>
               <Download className="h-4 w-4" />
               Export brief
             </button>
@@ -127,6 +191,16 @@ export default function OverviewPage() {
           </>
         }
       />
+
+      {error ? (
+        <div className="mt-4 flex items-start gap-2.5 rounded-md border border-rust/25 bg-rust-soft px-4 py-3 text-[12.5px] text-rust">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <div className="font-semibold">Could not load the live overview.</div>
+            <div className="mt-0.5">{error}</div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="card mt-6 grid grid-cols-2 overflow-hidden lg:grid-cols-4">
         {dynamicMetrics.map((metric, index) => {
@@ -144,7 +218,9 @@ export default function OverviewPage() {
             >
               <div className="eyebrow text-[11px]">{metric.label}</div>
               <div className="mt-2 flex items-end justify-between gap-2">
-                <div className="display text-[36px] leading-none tracking-[-0.035em] sm:text-[40px]">{metric.value}</div>
+                <div className="display text-[36px] leading-none tracking-[-0.035em] sm:text-[40px]">
+                  {loading && !data ? "—" : metric.value}
+                </div>
                 <Sparkline values={metric.series} tone={tone.spark} />
               </div>
               <div className="mt-2.5 flex items-center gap-2">
@@ -168,7 +244,7 @@ export default function OverviewPage() {
                 { key: "all", label: "All" },
                 { key: "high", label: "High risk" },
                 { key: "source", label: "Awaiting source" },
-                { key: "review", label: "In review" },
+                { key: "review", label: "Findings ready" },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -188,8 +264,10 @@ export default function OverviewPage() {
             {visibleApplications.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
                 <FileText className="h-9 w-9 text-muted/50" />
-                <div className="mt-2.5 text-[14px] font-semibold text-ink">No applications registered</div>
-                <p className="mt-1 text-[12px] text-muted">Applications submitted by institutions will appear here.</p>
+                <div className="mt-2.5 text-[14px] font-semibold text-ink">
+                  {loading && !data ? "Loading applications…" : "No applications in this view"}
+                </div>
+                <p className="mt-1 text-[12px] text-muted">Applications submitted by institutions appear here automatically.</p>
               </div>
             ) : (
               <table className="w-full min-w-[740px] border-collapse text-left">
@@ -250,7 +328,7 @@ export default function OverviewPage() {
           </div>
 
           <div className="flex items-center justify-between border-t border-line bg-[#faf8f2] px-5 py-3 text-[12px] text-muted">
-            <span>Showing {visibleApplications.length} priority applications · updated 11:42 IST</span>
+            <span>Showing {visibleApplications.length} priority applications · updated {data ? shortTime(data.generatedAt) : "—"} IST</span>
             <Link href="/applications" className="font-semibold text-pine hover:underline">
               View all applications →
             </Link>
@@ -271,12 +349,14 @@ export default function OverviewPage() {
             {reviewQueue.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-10 text-center">
                 <Inbox className="h-8 w-8 text-muted/50" />
-                <div className="mt-2.5 text-[13.5px] font-semibold text-ink">Queue is clear</div>
+                <div className="mt-2.5 text-[13.5px] font-semibold text-ink">
+                  {loading && !data ? "Loading queue…" : "Queue is clear"}
+                </div>
                 <p className="mt-0.5 text-[12px] text-muted">No applications currently require human review.</p>
               </div>
             ) : (
               reviewQueue.slice(0, 3).map((item) => (
-                <Link key={item.id} href="/review" className="group block px-5 py-3.5 transition-colors hover:bg-paper">
+                <Link key={item.id} href={`/applications/${item.applicationId}`} className="group block px-5 py-3.5 transition-colors hover:bg-paper">
                   <div className="flex items-center gap-2">
                     <span
                       className={cn(
@@ -287,7 +367,7 @@ export default function OverviewPage() {
                     <span className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted">{item.priority}</span>
                     <span className="mono ml-auto text-[11px] text-muted">{item.age}</span>
                   </div>
-                  <div className="mt-1.5 text-[13px] font-semibold leading-snug text-ink group-hover:text-pine-deep">{item.reason}</div>
+                  <div className="mt-1.5 line-clamp-2 text-[13px] font-semibold leading-snug text-ink group-hover:text-pine-deep">{item.reason}</div>
                   <div className="mt-1.5 flex items-center gap-2">
                     <span className="flex h-5 w-5 items-center justify-center rounded bg-[#efebe2] text-[10px] font-bold text-muted">{item.shortName}</span>
                     <span className="truncate text-[12px] text-muted">{item.institution}</span>
@@ -317,20 +397,20 @@ export default function OverviewPage() {
             </div>
           </div>
           <div className="px-3 pb-3 pt-4">
-            <ThroughputChart />
+            <ThroughputChart data={throughput} />
           </div>
           <div className="grid grid-cols-3 border-t border-line bg-[#faf8f2]">
             <div className="border-r border-line px-5 py-3">
-              <div className="mono text-[15px] font-semibold text-ink">{throughputData.reduce((acc, c) => acc + c.validated, 0)}</div>
+              <div className="mono text-[15px] font-semibold text-ink">{totalValidated}</div>
               <div className="text-[11.5px] text-muted">validated this week</div>
             </div>
             <div className="border-r border-line px-5 py-3">
-              <div className="mono text-[15px] font-semibold text-ink">{throughputData.reduce((acc, c) => acc + c.manual, 0)}</div>
+              <div className="mono text-[15px] font-semibold text-ink">{totalManual}</div>
               <div className="text-[11.5px] text-muted">routed to review</div>
             </div>
             <div className="px-5 py-3">
               <div className="mono text-[15px] font-semibold text-pine">
-                {throughputData.length ? `${Math.round((throughputData.reduce((acc, c) => acc + c.validated, 0) / (throughputData.reduce((acc, c) => acc + c.validated + c.manual, 0) || 1)) * 100)}%` : "—"}
+                {totalValidated + totalManual > 0 ? `${Math.round((totalValidated / (totalValidated + totalManual)) * 100)}%` : "—"}
               </div>
               <div className="text-[11.5px] text-muted">straight-through rate</div>
             </div>
@@ -340,7 +420,7 @@ export default function OverviewPage() {
         <section className="card overflow-hidden xl:col-span-5">
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <div>
-              <SectionHeading title="Signals by family" meta={`${signalData.length} open`} />
+              <SectionHeading title="Signals by family" meta={`${signals.reduce((acc, signal) => acc + signal.count, 0)} open`} />
               <p className="mt-1 text-[12px] text-muted">Advisory indicators requiring human verification.</p>
             </div>
             <Link href="/applications" className="flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-paper hover:text-ink">
@@ -348,17 +428,17 @@ export default function OverviewPage() {
             </Link>
           </div>
           <div className="space-y-4 px-5 py-5">
-            {signalData.length === 0 ? (
+            {signals.length === 0 ? (
               <div className="py-6 text-center text-[12px] text-muted">No risk signals flagged yet.</div>
             ) : (
-              signalData.map((signal) => (
+              signals.map((signal) => (
                 <div key={signal.label}>
                   <div className="flex items-center justify-between text-[12px]">
-                    <span className="font-medium text-ink">{signal.label}</span>
+                    <span className="font-medium capitalize text-ink">{signal.label}</span>
                     <span className="mono text-[11px] text-muted">{signal.count}</span>
                   </div>
                   <div className="mt-1.5 h-[3px] overflow-hidden rounded-full bg-[#ebe6db]">
-                    <div className="h-full rounded-full" style={{ width: `${(signal.count / 10) * 100}%`, backgroundColor: signal.tone }} />
+                    <div className="h-full rounded-full" style={{ width: `${(signal.count / maxSignal) * 100}%`, backgroundColor: signal.tone }} />
                   </div>
                 </div>
               ))
@@ -380,11 +460,11 @@ export default function OverviewPage() {
             <span className="flex items-center gap-1.5 text-[11px] text-muted"><span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-pine" /> Live</span>
           </div>
           <div className="divide-y divide-line">
-            {activityFeed.length === 0 ? (
+            {activity.length === 0 ? (
               <div className="py-8 text-center text-[12px] text-muted">No activity events recorded yet.</div>
             ) : (
-              activityFeed.slice(0, 4).map((item) => (
-                <div key={item.title} className="flex items-start gap-3 px-5 py-3">
+              activity.slice(0, 4).map((item, index) => (
+                <div key={`${item.title}-${index}`} className="flex items-start gap-3 px-5 py-3">
                   <span className={cn(
                     "mt-1.5 h-2 w-2 shrink-0 rounded-full",
                     item.tone === "rust" ? "bg-rust" : item.tone === "ochre" ? "bg-ochre" : item.tone === "slate" ? "bg-slate" : "bg-pine",
@@ -403,21 +483,27 @@ export default function OverviewPage() {
         <section className="card overflow-hidden xl:col-span-4">
           <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
             <SectionHeading title="Issuer source health" />
-            <span className="chip border-pine/15 bg-pine-soft text-pine">4 adapters</span>
+            <span className="chip border-pine/15 bg-pine-soft text-pine">{sourceHealth.length} adapters</span>
           </div>
           <div className="divide-y divide-line">
-            {sourceHealth.map((source) => (
-              <div key={source.name} className="flex items-center gap-3 px-5 py-3">
-                <span className={cn("h-2 w-2 rounded-full", source.tone === "ochre" ? "bg-ochre" : "bg-pine")} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[12.5px] font-medium text-ink">{source.name}</div>
-                  <div className={cn("text-[11px]", source.tone === "ochre" ? "text-ochre font-medium" : "text-muted")}>{source.status}</div>
-                </div>
-                <div className="w-[78px]">
-                  <ConfidenceMeter value={source.uptime / 100} tone={source.tone === "ochre" ? "ochre" : "pine"} />
-                </div>
+            {sourceHealth.length === 0 ? (
+              <div className="px-5 py-6 text-center text-[12px] text-muted">
+                No issuer verification runs recorded yet.
               </div>
-            ))}
+            ) : (
+              sourceHealth.map((source) => (
+                <div key={source.name} className="flex items-center gap-3 px-5 py-3">
+                  <span className={cn("h-2 w-2 rounded-full", source.tone === "ochre" ? "bg-ochre" : "bg-pine")} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12.5px] font-medium text-ink">{source.name}</div>
+                    <div className={cn("text-[11px]", source.tone === "ochre" ? "text-ochre font-medium" : "text-muted")}>{source.status}</div>
+                  </div>
+                  <div className="w-[78px]">
+                    <ConfidenceMeter value={source.uptime / 100} tone={source.tone === "ochre" ? "ochre" : "pine"} />
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -426,18 +512,18 @@ export default function OverviewPage() {
           <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full border border-white/10" />
           <div className="eyebrow text-[#b7c9bf] text-[11px]">Current rulebook</div>
           <div className="display mt-2 text-[30px] leading-none">2026–27</div>
-          <div className="mt-1 text-[12px] text-[#c7d4cb]">EoA Renewal · version 1.4</div>
+          <div className="mt-1 text-[12px] text-[#c7d4cb]">EoA Renewal · version {rules.version}</div>
           <div className="mt-4 flex items-center gap-4 border-t border-white/15 pt-3">
             <div>
-              <div className="mono text-[16px] font-semibold">12</div>
-              <div className="text-[11px] text-[#aebfb4]">rules</div>
+              <div className="mono text-[16px] font-semibold">{rules.active}</div>
+              <div className="text-[11px] text-[#aebfb4]">active rules</div>
             </div>
             <div>
-              <div className="mono text-[16px] font-semibold">5</div>
-              <div className="text-[11px] text-[#aebfb4]">doc classes</div>
+              <div className="mono text-[16px] font-semibold">{rules.total}</div>
+              <div className="text-[11px] text-[#aebfb4]">total rules</div>
             </div>
             <div>
-              <div className="mono text-[16px] font-semibold">3</div>
+              <div className="mono text-[16px] font-semibold">{sourceHealth.length}</div>
               <div className="text-[11px] text-[#aebfb4]">issuers</div>
             </div>
           </div>
@@ -452,9 +538,9 @@ export default function OverviewPage() {
 
       <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-dashed border-line-strong bg-[#f8f5ee]/60 px-4 py-2.5 text-[12px] text-muted">
         <span className="flex items-center gap-1.5"><FileWarning className="h-3.5 w-3.5 text-pine" /> {reviewQueue.length} items in review queue</span>
-        <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> System ready for document processing</span>
-        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-pine" /> Audit chain initialized · {auditEntries.length} entries</span>
-        <span className="ml-auto font-mono text-[11px] font-semibold">READY</span>
+        <span className="flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> Last rulebook update {rules.updatedAt ? shortTime(rules.updatedAt) : "—"} IST</span>
+        <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5 text-pine" /> Audit chain · {audit.totalEntries} entries</span>
+        <span className="ml-auto font-mono text-[11px] font-semibold">{loading ? "SYNCING" : error ? "DEGRADED" : "READY"}</span>
       </div>
     </div>
   );

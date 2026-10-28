@@ -22,10 +22,11 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { applications, reviewQueue } from "@/lib/mock-data";
 import { cn } from "@/lib/display";
-import { BrandMark, Logo } from "@/components/logo";
+import { BrandMark } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
+import { CURRENT_OFFICER } from "@/lib/officer/identity";
+import type { Application } from "@/lib/types";
 
 type NavItem = {
   href: string;
@@ -39,13 +40,13 @@ type NavSection = {
   items: NavItem[];
 };
 
-const officerNavigation: NavSection[] = [
+const officerNavigation = (counts: { applications: number; reviewQueue: number }): NavSection[] => [
   {
     label: "Regulatory Scrutiny",
     items: [
       { href: "/overview", label: "Desk Overview", icon: LayoutGrid },
-      { href: "/applications", label: "Applications", icon: FileStack, count: applications.length > 0 ? String(applications.length) : undefined },
-      { href: "/review", label: "Review Queue", icon: Inbox, count: reviewQueue.length > 0 ? String(reviewQueue.length) : undefined },
+      { href: "/applications", label: "Applications", icon: FileStack, count: counts.applications > 0 ? String(counts.applications) : undefined },
+      { href: "/review", label: "Review Queue", icon: Inbox, count: counts.reviewQueue > 0 ? String(counts.reviewQueue) : undefined },
     ],
   },
   {
@@ -70,7 +71,7 @@ const institutionNavigation: NavSection[] = [
 ];
 
 const roleNames: Record<string, { label: string; name: string; initials: string; college?: string }> = {
-  scrutiny_officer: { label: "AICTE Scrutiny Officer", name: "Dr. Ananya Menon", initials: "AM" },
+  scrutiny_officer: { label: CURRENT_OFFICER.roleLabel, name: CURRENT_OFFICER.name, initials: CURRENT_OFFICER.initials },
   senior_officer: { label: "Senior Regional Officer", name: "Dr. Vikram Sethi", initials: "VS" },
   institution: { label: "Principal", name: "Dr. B. K. Murthy", initials: "SP", college: "Sardar Patel Inst. of Tech" },
   auditor: { label: "Independent Auditor", name: "Meera Rao", initials: "MR" },
@@ -97,12 +98,14 @@ function Sidebar({
   closeMobile,
   collapsed,
   toggleCollapsed,
+  counts,
 }: {
   pathname: string;
   mobileOpen: boolean;
   closeMobile: () => void;
   collapsed: boolean;
   toggleCollapsed: () => void;
+  counts: { applications: number; reviewQueue: number };
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,7 +132,7 @@ function Sidebar({
   }, [pathname, searchParams]);
 
   const isInstitution = role === "institution" || pathname.startsWith("/institution");
-  const navigation = isInstitution ? institutionNavigation : officerNavigation;
+  const navigation = isInstitution ? institutionNavigation : officerNavigation(counts);
   const user = useMemo(() => {
     if (isInstitution) {
       if (college === "dattameghe") {
@@ -369,7 +372,7 @@ function Sidebar({
   );
 }
 
-function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CommandPalette({ open, onClose, apps }: { open: boolean; onClose: () => void; apps: Application[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -383,16 +386,16 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
   }, [open]);
 
   const filteredApps = useMemo(() => {
-    if (!query.trim()) return applications.slice(0, 5);
+    if (!query.trim()) return apps.slice(0, 5);
     const q = query.toLowerCase();
-    return applications.filter(
+    return apps.filter(
       (a) =>
         a.id.toLowerCase().includes(q) ||
         a.institution.toLowerCase().includes(q) ||
         a.programme.toLowerCase().includes(q) ||
         a.state.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [apps, query]);
 
   if (!open) return null;
 
@@ -443,7 +446,41 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
   );
 }
 
-function Notifications({ open, onClose }: { open: boolean; onClose: () => void }) {
+type ShellAlert = {
+  id: string;
+  applicationId: string;
+  alertType: string;
+  severity: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  institution: string;
+};
+
+function relativeTime(value: string) {
+  const diff = Date.now() - new Date(value).getTime();
+  if (!Number.isFinite(diff) || diff < 0) return "just now";
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function Notifications({
+  open,
+  onClose,
+  alerts,
+  reviewCount,
+  loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  alerts: ShellAlert[];
+  reviewCount: number;
+  loading: boolean;
+}) {
   if (!open) return null;
   return (
     <>
@@ -453,25 +490,55 @@ function Notifications({ open, onClose }: { open: boolean; onClose: () => void }
           <div className="text-[13px] font-semibold text-ink">Notifications & alerts</div>
           <span className="mono rounded bg-paper px-1.5 py-0.5 text-[10px] text-muted">AY 2026–27</span>
         </div>
-        <div className="p-3 space-y-2">
-          <div className="rounded-lg border border-line bg-paper p-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-ink">Rule Evaluation Active</span>
-              <span className="mono text-[10px] text-pine font-medium">LIVE</span>
+        <div className="max-h-[360px] space-y-2 overflow-y-auto p-3 thin-scroll">
+          {reviewCount > 0 ? (
+            <Link
+              href="/review"
+              onClick={onClose}
+              className="block rounded-lg border border-ochre/25 bg-ochre-soft/50 p-2.5 transition-colors hover:bg-ochre-soft"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-semibold text-ink">Review queue needs a human</span>
+                <span className="mono text-[10px] font-medium text-ochre">{reviewCount} OPEN</span>
+              </div>
+              <p className="mt-1 text-[11.5px] text-muted">
+                {reviewCount} item{reviewCount === 1 ? "" : "s"} could not be resolved automatically.
+              </p>
+            </Link>
+          ) : null}
+
+          {alerts.map((alert) => {
+            const tone =
+              alert.severity === "critical" || alert.severity === "high"
+                ? "border-rust/25 bg-rust-soft/50"
+                : alert.severity === "warning"
+                  ? "border-ochre/25 bg-ochre-soft/40"
+                  : "border-line bg-paper";
+            return (
+              <Link
+                key={alert.id}
+                href={`/applications/${alert.applicationId}`}
+                onClick={onClose}
+                className={cn("block rounded-lg border p-2.5 transition-colors hover:brightness-[0.985]", tone)}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[12px] font-semibold text-ink">{alert.title}</span>
+                  <span className="mono shrink-0 text-[10px] font-medium uppercase text-muted">{alert.severity}</span>
+                </div>
+                <p className="mt-1 line-clamp-2 text-[11.5px] text-muted">{alert.message}</p>
+                <div className="mt-1.5 flex items-center justify-between text-[10.5px] text-muted">
+                  <span className="truncate">{alert.institution}</span>
+                  <span>{relativeTime(alert.createdAt)}</span>
+                </div>
+              </Link>
+            );
+          })}
+
+          {alerts.length === 0 && reviewCount === 0 ? (
+            <div className="px-2 py-6 text-center text-[12px] text-muted">
+              {loading ? "Loading alerts…" : "No open alerts. Nothing needs attention right now."}
             </div>
-            <p className="mt-1 text-[11.5px] text-muted">
-              15 active rules loaded from rules/2026-27 engine. Cryptographic audit chain verified.
-            </p>
-          </div>
-          <div className="rounded-lg border border-line bg-paper p-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[12px] font-semibold text-ink">Fire NOC Mock Advisory</span>
-              <span className="mono text-[10px] text-ochre font-medium">NOTICE</span>
-            </div>
-            <p className="mt-1 text-[11.5px] text-muted">
-              State fire service adapter responded with advisory flag for validity horizon check.
-            </p>
-          </div>
+          ) : null}
         </div>
       </div>
     </>
@@ -486,6 +553,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [role, setRole] = useState("scrutiny_officer");
   const [college, setCollege] = useState("sardarpatel");
+  const [shellData, setShellData] = useState<{ apps: Application[]; reviewCount: number; alerts: ShellAlert[] }>({
+    apps: [],
+    reviewCount: 0,
+    alerts: [],
+  });
+  const [shellLoading, setShellLoading] = useState(true);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("scrutinix-sidebar-collapsed");
@@ -503,6 +576,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (storedCollege) setCollege(storedCollege);
       }
     }
+  }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadShellData() {
+      try {
+        const [appsRes, queueRes, alertsRes] = await Promise.all([
+          fetch("/api/applications", { cache: "no-store" }),
+          fetch("/api/review-queue", { cache: "no-store" }),
+          fetch("/api/alerts", { cache: "no-store" }),
+        ]);
+
+        const appsPayload = await appsRes.json().catch(() => ({}));
+        const queuePayload = await queueRes.json().catch(() => ({}));
+        const alertsPayload = await alertsRes.json().catch(() => ({}));
+
+        if (cancelled) return;
+        setShellData({
+          apps: Array.isArray(appsPayload.applications) ? appsPayload.applications : [],
+          reviewCount: Array.isArray(queuePayload.items) ? queuePayload.items.length : 0,
+          alerts: Array.isArray(alertsPayload.alerts) ? alertsPayload.alerts : [],
+        });
+      } catch (err) {
+        console.error("Failed to load shell navigation data:", err);
+      } finally {
+        if (!cancelled) setShellLoading(false);
+      }
+    }
+
+    loadShellData();
+    const timer = window.setInterval(loadShellData, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [pathname]);
 
   const toggleCollapsed = () => {
@@ -543,6 +652,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           closeMobile={() => setMobileOpen(false)}
           collapsed={collapsed}
           toggleCollapsed={toggleCollapsed}
+          counts={{ applications: shellData.apps.length, reviewQueue: shellData.reviewCount }}
         />
       </Suspense>
 
@@ -613,7 +723,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   <Bell className="h-4 w-4" />
                 </button>
-                <Notifications open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
+                <Notifications
+                  open={notificationsOpen}
+                  onClose={() => setNotificationsOpen(false)}
+                  alerts={shellData.alerts}
+                  reviewCount={shellData.reviewCount}
+                  loading={shellLoading}
+                />
               </div>
 
               {/* Avatar Pill reflecting active persona */}
@@ -622,7 +738,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 title={
                   isInstitution
                     ? `${collegeContext.principal} · Principal, ${collegeContext.short}`
-                    : "Dr. Ananya Menon · Scrutiny Officer"
+                    : `${roleNames.scrutiny_officer.name} · ${roleNames.scrutiny_officer.label}`
                 }
               >
                 {isInstitution ? collegeContext.short : "AM"}
@@ -634,7 +750,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-7">{children}</main>
       </div>
 
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} apps={shellData.apps} />
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { throughputData } from "@/lib/mock-data";
+type ThroughputPoint = { day: string; validated: number; manual: number };
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string }>; label?: string }) {
   if (!active || !payload?.length) return null;
@@ -27,8 +27,8 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
-export function ThroughputChart() {
-  if (!throughputData.length) {
+export function ThroughputChart({ data = [] }: { data?: ThroughputPoint[] }) {
+  if (!data.length) {
     return (
       <div className="flex h-[214px] w-full flex-col items-center justify-center rounded-md border border-dashed border-line bg-paper/40 p-4 text-center">
         <p className="text-[11px] font-medium text-ink">No throughput data recorded</p>
@@ -40,7 +40,7 @@ export function ThroughputChart() {
   return (
     <div className="h-[214px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={throughputData} margin={{ top: 10, right: 4, bottom: 0, left: -20 }}>
+        <ComposedChart data={data} margin={{ top: 10, right: 4, bottom: 0, left: -20 }}>
           <defs>
             <linearGradient id="validatedFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#1c5444" stopOpacity={0.16} />

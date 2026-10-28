@@ -79,6 +79,7 @@ export interface DocumentRecord {
   extracted: ExtractedField[];
   findings: number;
   note?: string;
+  ocrText?: string;
 }
 
 export interface Finding {
@@ -149,4 +150,5 @@ export interface RuleRecord {
   evaluations: number;
   failures: number;
   yaml: string;
+  updatedAt?: string | null;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { CURRENT_OFFICER } from "@/lib/officer/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -62,8 +63,8 @@ export async function POST(request: Request) {
       .from("officer_decisions")
       .insert({
         application_id: applicationId,
-        officer_id: "OFF-AICTE-091",
-        officer_name: officerName || "Dr. Vikram Sharma",
+        officer_id: CURRENT_OFFICER.id,
+        officer_name: officerName || CURRENT_OFFICER.name,
         officer_role: validRole,
         outcome,
         remarks,
@@ -78,8 +79,8 @@ export async function POST(request: Request) {
 
     // 2. Append to audit log
     await supabase.rpc("append_audit", {
-      p_actor: officerName || "Dr. Vikram Sharma",
-      p_actor_role: officerRole || "senior_officer",
+      p_actor: officerName || CURRENT_OFFICER.name,
+      p_actor_role: officerRole || CURRENT_OFFICER.role,
       p_action: `DECISION_${outcome.toUpperCase()}`,
       p_entity: "applications",
       p_entity_id: applicationId,

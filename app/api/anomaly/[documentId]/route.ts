@@ -14,6 +14,10 @@ import {
   extractDocumentFields,
   extractPdfTextAndStreams,
 } from "@/lib/pipeline/forensics";
+import {
+  synthesizeForensicAnalysis,
+  type ForensicEvidencePackage,
+} from "@/lib/pipeline/ai-analyzer";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +77,7 @@ export async function POST(
       }
     }
 
+    let localFilePath: string | undefined;
     if (!buffer) {
       const candidates = [
         path.resolve(process.cwd(), doc.storage_path || ""),
@@ -84,6 +89,7 @@ export async function POST(
       for (const p of candidates) {
         if (fs.existsSync(p)) {
           buffer = fs.readFileSync(p);
+          localFilePath = p;
           break;
         }
       }
@@ -159,7 +165,7 @@ export async function POST(
       statedDate = fields.issue_date?.normalized || fields.issue_date?.raw;
     }
 
-    const metaResult = extractPdfMetadataAndDates(buffer, statedDate);
+    const metaResult = extractPdfMetadataAndDates(buffer, statedDate, localFilePath);
 
     if (metaResult.hasInconsistency) {
       detectedAnomalies.push({
@@ -185,7 +191,7 @@ export async function POST(
     }
 
     // --- Check 3: Digital Splicing & Tamper Detection ---
-    const tamperResult = detectDocumentTampering(buffer, "application/pdf");
+    const tamperResult = detectDocumentTampering(buffer, "application/pdf", localFilePath);
 
     if (tamperResult.isTampered) {
       detectedAnomalies.push({
@@ -234,9 +240,75 @@ export async function POST(
       });
     }
 
+    // Query institution name
+    const { data: instData } = await supabase
+      .from("institutions")
+      .select("name")
+      .eq("id", application.institution_id)
+      .single();
+
+    // Query existing verifications for this document if available
+    const { data: verifs } = await supabase
+      .from("verification_results")
+      .select("issuer_name, status, request_payload, response_payload")
+      .eq("document_id", documentId);
+
+    // Map extracted fields
+    const extractedFieldsMap: Record<string, { value: string; confidence: number }> = {};
+    for (const f of existingFields || []) {
+      extractedFieldsMap[f.field_name] = {
+        value: f.raw_value || f.normalized_value || "",
+        confidence: 0.95,
+      };
+    }
+
+    const authorityVerifs = (verifs || []).map((v) => ({
+      issuer: v.issuer_name,
+      status: v.status,
+      reference: v.request_payload?.reference || v.request_payload?.qr_url || documentId,
+      detail:
+        v.response_payload?.error ||
+        (v.status === "verified"
+          ? `Verified active (${v.response_payload?.valid_until || v.response_payload?.approved_intake || v.response_payload?.score || "OK"})`
+          : v.status),
+    }));
+
+    // Synthesize explainable AI advisory report
+    const evidencePackage: ForensicEvidencePackage = {
+      applicationId: doc.application_id,
+      institutionName: instData?.name || application.institution_id,
+      documentId: doc.id,
+      documentName: doc.file_name,
+      ocrText: doc.ocr_text || undefined,
+      extractedFields: extractedFieldsMap,
+      metadata: {
+        creationDate: metaResult.creationDate,
+        modDate: metaResult.modDate,
+        creator: metaResult.metadata?.creator || metaResult.metadata?.author,
+        producer: metaResult.producer,
+        discrepancyHours: metaResult.diffHours,
+      },
+      tamperResult: {
+        isTampered: tamperResult.isTampered,
+        confidence: tamperResult.confidence,
+        reason: tamperResult.reason,
+        boundingBox: tamperResult.boundingBox,
+      },
+      crossInstitutionCollision: {
+        isDuplicate: dupCheck.isDuplicate,
+        collidingInstitution:
+          dupCheck.matchedDoc?.institution_name || dupCheck.matchedDoc?.institution_id,
+        collidingDocId: dupCheck.matchedDoc?.id,
+      },
+      authorityVerifications: authorityVerifs,
+    };
+
+    const aiAnalysis = synthesizeForensicAnalysis(evidencePackage);
+
     return NextResponse.json({
       documentId,
       anomalies: detectedAnomalies,
+      ai_analysis: aiAnalysis,
     });
   } catch (err: any) {
     console.error("Error running anomaly detection:", err);

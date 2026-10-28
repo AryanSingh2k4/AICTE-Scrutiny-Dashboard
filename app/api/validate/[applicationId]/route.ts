@@ -6,6 +6,10 @@
 import { NextResponse } from "next/server";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { evaluateRule, type EvaluationInput } from "@/lib/pipeline/rules-evaluator";
+import {
+  synthesizeForensicAnalysis,
+  type ForensicEvidencePackage,
+} from "@/lib/pipeline/ai-analyzer";
 
 export const dynamic = "force-dynamic";
 
@@ -48,12 +52,12 @@ export async function POST(
       supabase.from("extracted_fields").select("*"),
       supabase.from("rules").select("*").eq("active", true),
       supabase.from("documents").select("id, file_name, sha256_hash, application_id"),
-      supabase.from("applications").select("id, institution_id, institutions(name)"),
+      supabase.from("applications").select("id, institution_id, submitted_at, institutions(name)"),
       supabase.from("anomaly_flags").select("*").eq("application_id", applicationId),
     ]);
 
-    // 3. Map cross-application document hashes with application_id, institution_id, institution_name
-    const appMap = new Map<string, { institutionId: string; institutionName: string }>();
+    // 3. Map cross-application document hashes with application_id, institution_id, institution_name, submitted_at
+    const appMap = new Map<string, { institutionId: string; institutionName: string; submittedAt?: string }>();
     for (const app of allApps || []) {
       const instName = Array.isArray(app.institutions)
         ? app.institutions[0]?.name || ""
@@ -61,6 +65,7 @@ export async function POST(
       appMap.set(app.id, {
         institutionId: app.institution_id,
         institutionName: instName,
+        submittedAt: (app as any).submitted_at,
       });
     }
 
@@ -71,6 +76,7 @@ export async function POST(
         application_id: d.application_id,
         institution_id: appInfo?.institutionId || "",
         institution_name: appInfo?.institutionName || "",
+        submitted_at: appInfo?.submittedAt,
       };
     });
 
@@ -314,7 +320,69 @@ export async function POST(
       await supabase.from("anomaly_flags").insert(anomalyFlagsToInsert);
     }
 
-    // 8. Compute risk score, findings count, flags count & system status
+    // 8. Synthesize AI reasoning advisory report
+    const extractedFieldsMap: Record<string, { value: string; confidence: number }> = {};
+    for (const f of appExtracted) {
+      extractedFieldsMap[f.field_name] = {
+        value: f.raw_value || f.normalized_value || "",
+        confidence: f.confidence || 0.95,
+      };
+    }
+
+    const authorityVerifs = verificationsToInsert.map((v) => ({
+      issuer: v.issuer_name,
+      status: v.status,
+      reference: v.request_payload?.reference || v.request_payload?.qr_url || v.document_id,
+      detail:
+        v.response_payload?.error ||
+        (v.status === "verified"
+          ? `Verified active (${v.response_payload?.valid_until || v.response_payload?.approved_intake || v.response_payload?.score || "OK"})`
+          : v.status),
+    }));
+
+    const ruleEvals = findings.map((f) => ({
+      ruleId: f.ruleId,
+      title: f.message || f.ruleId,
+      status: f.status,
+      severity: f.severity,
+      reason: f.message,
+    }));
+
+    const evidencePackage: ForensicEvidencePackage = {
+      applicationId,
+      institutionName: institution?.name || application.institution_id,
+      extractedFields: extractedFieldsMap,
+      ruleEvaluations: ruleEvals,
+      authorityVerifications: authorityVerifs,
+      tamperResult: elaFinding
+        ? {
+            isTampered: true,
+            confidence: elaFinding.confidence || 0.84,
+            reason: elaFinding.message,
+            boundingBox: (elaFinding.evidence as any)?.bbox || { x: 380, y: 240, w: 80, h: 30 },
+          }
+        : undefined,
+      crossInstitutionCollision: dupFinding
+        ? {
+            isDuplicate: true,
+            collidingInstitution:
+              (dupFinding.evidence as any)?.matching_institution_name ||
+              (dupFinding.evidence as any)?.matching_institution ||
+              (dupFinding.evidence as any)?.matching_institution_id,
+            collidingDocId: (dupFinding.evidence as any)?.matching_application_id,
+          }
+        : undefined,
+      metadata: metaFinding
+        ? {
+            creationDate: (metaFinding.evidence as any)?.pdf_created,
+            discrepancyHours: (metaFinding.evidence as any)?.hours_difference,
+          }
+        : undefined,
+    };
+
+    const aiAnalysis = synthesizeForensicAnalysis(evidencePackage);
+
+    // 9. Compute risk score, findings count, flags count & system status
     const failCount = findings.filter((f) => f.status === "FAIL").length;
     const reviewCount = findings.filter((f) => f.status === "REVIEW").length;
     const verifIssues = verificationsToInsert.filter(
@@ -325,11 +393,8 @@ export async function POST(
     const findingsCount = failCount + reviewCount;
     const flagsCount = findingsCount + verifIssueCount;
 
-    let overallRiskScore = 0.00;
-    if (flagsCount > 0) {
-      const rawRisk = failCount * 0.40 + reviewCount * 0.20 + verifIssueCount * 0.15;
-      overallRiskScore = Math.min(1.00, Math.max(0.10, Number(rawRisk.toFixed(2))));
-    }
+    // Use synthesized AI overallRiskScore (clean baseline = 0.00)
+    const overallRiskScore = flagsCount === 0 ? 0.00 : aiAnalysis.overallRiskScore;
 
     const systemStatus = flagsCount > 0 ? "findings_available" : "ready_for_review";
 
@@ -343,7 +408,7 @@ export async function POST(
       })
       .eq("id", applicationId);
 
-    // 9. Append to cryptographic audit trail
+    // 10. Append to cryptographic audit trail
     await supabase.rpc("append_audit", {
       p_actor: "Officer Ananya Menon",
       p_actor_role: "scrutiny_officer",
@@ -360,6 +425,7 @@ export async function POST(
         anomaly_flags_count: anomalyFlagsToInsert.length,
         flags_count: flagsCount,
         overall_risk_score: overallRiskScore,
+        ai_recommendation: aiAnalysis.statutoryRecommendation.action,
         system_status: systemStatus,
         timestamp: new Date().toISOString(),
       },
@@ -373,6 +439,7 @@ export async function POST(
       overallRiskScore,
       findings,
       verifications: verificationsToInsert,
+      ai_analysis: aiAnalysis,
     });
   } catch (err: any) {
     console.error("Validation error:", err);

@@ -59,6 +59,7 @@ export async function POST(
       }
     }
 
+    let localFilePath: string | undefined;
     if (!buffer) {
       const candidates = [
         path.resolve(process.cwd(), doc.storage_path || ""),
@@ -70,6 +71,7 @@ export async function POST(
       for (const p of candidates) {
         if (fs.existsSync(p)) {
           buffer = fs.readFileSync(p);
+          localFilePath = p;
           break;
         }
       }
@@ -94,7 +96,7 @@ export async function POST(
     const statedDate =
       extractedFieldItems.issue_date?.normalized ||
       extractedFieldItems.issue_date?.raw;
-    const metaResult = extractPdfMetadataAndDates(buffer, statedDate);
+    const metaResult = extractPdfMetadataAndDates(buffer, statedDate, localFilePath);
 
     // 5. Insert / Update extracted fields in extracted_fields table
     const fieldsToInsert = Object.entries(extractedFieldItems).map(([fieldName, item]) => ({

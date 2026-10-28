@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -348,6 +348,23 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
   const [initialDecision, setInitialDecision] = useState<DecisionType>("clarification");
   const [toast, setToast] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+
+  useEffect(() => {
+    async function loadInitialValidation() {
+      if (!application?.id) return;
+      try {
+        const res = await fetch(`/api/validate/${application.id}`, { method: "POST" });
+        const data = await res.json();
+        if (data.ai_analysis) {
+          setAiAnalysis(data.ai_analysis);
+        }
+      } catch (err) {
+        console.error("Initial validation load failed:", err);
+      }
+    }
+    loadInitialValidation();
+  }, [application?.id]);
 
   const selectedDoc = appDocs.find((doc) => doc.id === selectedDocId) ?? appDocs[0];
   const selectedFinding = appFindings.find((finding) => finding.id === selectedFindingId) ?? appFindings[0];
@@ -439,6 +456,9 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
       }
       if (data.flagsCount !== undefined) {
         setAppStatus(data.flagsCount > 0 ? "findings_ready" : "ready_for_decision");
+      }
+      if (data.ai_analysis) {
+        setAiAnalysis(data.ai_analysis);
       }
 
       setToast(`Validation re-run complete: ${data.rulesEvaluated ?? 12} rules evaluated, ${data.flagsCount ?? 0} findings raised in ${elapsed}s.`);
@@ -703,6 +723,43 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                   </div>
                   <span className="mono text-[11px] text-muted">{visibleFindings.length} shown</span>
                 </div>
+                {aiAnalysis ? (
+                  <div className="border-b border-line bg-gradient-to-br from-[#f8f5ee] to-[#f4eee1] p-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-pine">
+                        <Sparkles className="h-3.5 w-3.5" /> AI Decision Support
+                      </div>
+                      <span className={cn(
+                        "rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                        aiAnalysis.statutoryRecommendation?.action === "accept"
+                          ? "bg-pine-soft text-pine border border-pine/20"
+                          : aiAnalysis.statutoryRecommendation?.action === "recommend_physical_inspection"
+                          ? "bg-ochre-soft text-ochre border border-ochre/20"
+                          : "bg-rust-soft text-rust border border-rust/20"
+                      )}>
+                        {aiAnalysis.statutoryRecommendation?.action?.replaceAll("_", " ")}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[12px] leading-relaxed text-[#4b514b] line-clamp-3">
+                      {aiAnalysis.executiveSummary}
+                    </p>
+                    <div className="mt-2.5 flex items-center justify-between pt-2 border-t border-[#e2d9c8]">
+                      <span className="text-[10px] text-muted mono">APH 2026–27 Statutory Ref</span>
+                      <button
+                        onClick={() => openDecision(
+                          aiAnalysis.statutoryRecommendation?.action === "accept"
+                            ? "accept"
+                            : aiAnalysis.statutoryRecommendation?.action === "recommend_physical_inspection"
+                            ? "inspection"
+                            : "clarification"
+                        )}
+                        className="btn btn-secondary h-6 text-[10.5px] px-2 font-medium"
+                      >
+                        Adopt AI Guidance
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="max-h-[550px] divide-y divide-line overflow-y-auto thin-scroll">
                   {visibleFindings.map((finding) => {
                     const item = severity[finding.severity] || severity.high;

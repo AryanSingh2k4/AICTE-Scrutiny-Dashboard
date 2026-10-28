@@ -3,7 +3,7 @@ import path from "node:path";
 import { chromium } from "playwright-core";
 
 const EDGE_PATH = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
-const BASE_URL = "http://localhost:3001";
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const DESKTOP_DIR = path.resolve("C:\\Users\\aryan\\Desktop\\ScrutiniX_E2E_Test_Report");
 const SCREENSHOTS_DIR = path.join(DESKTOP_DIR, "screenshots");
 

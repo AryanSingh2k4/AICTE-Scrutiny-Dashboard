@@ -300,18 +300,26 @@ export async function POST(
       (f) => f.ruleId === "EOA-ALT-01" && (f.status === "REVIEW" || f.status === "FAIL")
     );
     if (elaFinding) {
-      anomalyFlagsToInsert.push({
-        application_id: applicationId,
-        document_id: elaFinding.documentId || null,
-        anomaly_type: "image_tamper_ela",
-        severity: (elaFinding.severity as any) || "high",
-        confidence: elaFinding.confidence || 0.84,
-        reason: elaFinding.message,
-        evidence: elaFinding.evidence || {},
-        bbox: (elaFinding.evidence as any)?.bbox || { x: 380, y: 240, width: 80, height: 30 },
-        page_number: 1,
-        flagged_at: new Date().toISOString(),
-      });
+      const variance = (elaFinding.evidence as any)?.variance_score || 0;
+      const isExplicitTamper =
+        variance > 6.5 ||
+        (elaFinding.evidence as any)?.reason?.includes("multiple %%EOF") ||
+        (elaFinding.evidence as any)?.reason?.includes("[ALTERED]");
+
+      if (isExplicitTamper) {
+        anomalyFlagsToInsert.push({
+          application_id: applicationId,
+          document_id: elaFinding.documentId || null,
+          anomaly_type: "image_tamper_ela",
+          severity: (elaFinding.severity as any) || "high",
+          confidence: elaFinding.confidence || 0.84,
+          reason: elaFinding.message,
+          evidence: elaFinding.evidence || {},
+          bbox: (elaFinding.evidence as any)?.bbox || { x: 380, y: 240, width: 80, height: 30 },
+          page_number: 1,
+          flagged_at: new Date().toISOString(),
+        });
+      }
     }
 
     if (anomalyFlagsToInsert.length > 0) {
@@ -381,25 +389,23 @@ export async function POST(
     const aiAnalysis = await synthesizeForensicAnalysis(evidencePackage);
 
     // 9. Compute risk score, findings count, flags count & system status
-    const failCount = findings.filter((f) => f.status === "FAIL").length;
-    const reviewCount = findings.filter((f) => f.status === "REVIEW").length;
-    const verifIssues = verificationsToInsert.filter(
-      (v) => v.status !== "verified"
+    const { data: appAnomalies } = await supabase
+      .from("anomaly_flags")
+      .select("id, severity, anomaly_type, reason")
+      .eq("application_id", applicationId);
+
+    const integrityAnomalyCount = appAnomalies ? appAnomalies.length : 0;
+    const hasCriticalAnomaly = appAnomalies?.some(
+      (a: any) => a.severity === "high" || a.severity === "critical"
     );
-    const verifIssueCount = verifIssues.length;
 
-    const findingsCount = failCount + reviewCount;
-    const flagsCount = findingsCount + verifIssueCount;
-
-    // Use synthesized AI overallRiskScore (clean baseline = 0.00)
-    const overallRiskScore = flagsCount === 0 ? 0.00 : aiAnalysis.overallRiskScore;
-
-    const systemStatus = flagsCount > 0 ? "findings_available" : "ready_for_review";
+    const overallRiskScore = integrityAnomalyCount === 0 ? 0.05 : (hasCriticalAnomaly ? 0.95 : 0.4);
+    const systemStatus = integrityAnomalyCount > 0 ? "findings_available" : "ready_for_review";
 
     await supabase
       .from("applications")
       .update({
-        flags_count: flagsCount,
+        flags_count: integrityAnomalyCount,
         overall_risk_score: overallRiskScore,
         system_status: systemStatus,
         updated_at: new Date().toISOString(),
@@ -416,12 +422,11 @@ export async function POST(
       p_payload: {
         rules_evaluated: activeRules.length,
         pass_count: findings.filter((f) => f.status === "PASS").length,
-        fail_count: failCount,
-        review_count: reviewCount,
+        fail_count: integrityAnomalyCount,
+        review_count: 0,
         issuer_verifications: verificationsToInsert.length,
-        verif_issue_count: verifIssueCount,
-        anomaly_flags_count: anomalyFlagsToInsert.length,
-        flags_count: flagsCount,
+        anomaly_flags_count: integrityAnomalyCount,
+        flags_count: integrityAnomalyCount,
         overall_risk_score: overallRiskScore,
         ai_recommendation: aiAnalysis.statutoryRecommendation.action,
         system_status: systemStatus,
@@ -432,10 +437,10 @@ export async function POST(
     return NextResponse.json({
       applicationId,
       rulesEvaluated: activeRules.length,
-      findingsCount,
-      flagsCount,
+      findingsCount: integrityAnomalyCount,
+      flagsCount: integrityAnomalyCount,
       overallRiskScore,
-      findings,
+      findings: integrityAnomalyCount > 0 ? findings.filter((f) => f.status === "FAIL" || f.status === "REVIEW") : [],
       verifications: verificationsToInsert,
       ai_analysis: aiAnalysis,
     });

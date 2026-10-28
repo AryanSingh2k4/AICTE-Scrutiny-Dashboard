@@ -535,10 +535,10 @@ export function evaluateRule(rule: RuleDefinition, data: EvaluationInput): RuleE
 
   // 7. Error Level Analysis (ELA) / Image Tamper Detection
   if (rule.type === "image_tamper_ela") {
-    const maxThreshold = spec.max_variance_threshold || 0.78;
+    const maxThreshold = spec.max_variance_threshold || 6.5;
 
     for (const doc of data.documents) {
-      const variance = doc.metadata?.ela_variance ?? doc.metadata?.variance_score;
+      const variance = doc.metadata?.elaMetrics?.varianceScore ?? doc.metadata?.ela_variance ?? doc.metadata?.variance_score;
       if (variance !== undefined && typeof variance === "number" && variance > maxThreshold) {
         return {
           ruleId: rule.id,

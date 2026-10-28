@@ -195,6 +195,9 @@ export async function DELETE() {
     const supabase = getServerSupabase();
     // Delete in child-to-parent order to satisfy foreign keys
     await supabase.from("anomaly_flags").delete().neq("application_id", "none");
+    await supabase.from("validation_results").delete().neq("application_id", "none");
+    await supabase.from("verification_results").delete().neq("document_id", "none");
+    await supabase.from("extracted_fields").delete().neq("document_id", "none");
     await supabase.from("documents").delete().neq("application_id", "none");
     await supabase.from("decisions").delete().neq("application_id", "none");
     await supabase.from("applications").delete().neq("id", "none");

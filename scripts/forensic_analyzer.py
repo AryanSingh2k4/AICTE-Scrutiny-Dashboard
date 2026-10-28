@@ -331,11 +331,11 @@ def analyze_pdf(pdf_path, stated_date_override=None):
         confidence = 0.84
         reason = f"Font inconsistency detected in critical score/tier block: '{inc['text']}'"
         target_bbox = inc["bbox"]
-    elif len(ela_contours) > 10 and variance_score > 4.5:
+    elif len(ela_contours) > 10 and variance_score > 6.5:
         best = max(ela_contours, key=lambda c: c["area"])
         is_tampered = True
         confidence = 0.82
-        reason = f"Localized digital alteration detected via ELA (variance {variance_score} exceeds baseline 4.5)"
+        reason = f"Localized digital alteration detected via ELA (variance {variance_score} exceeds baseline 6.5)"
         target_bbox = { "x": best["x"], "y": best["y"], "w": best["w"], "h": best["h"] }
 
     tampering_result = {

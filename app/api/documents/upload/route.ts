@@ -21,8 +21,8 @@ const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
 
-function normalizeDocType(input: string): string {
-  const s = (input || "").toLowerCase();
+function normalizeDocType(input: string, fileName?: string): string {
+  const s = `${input || ""} ${fileName || ""}`.toLowerCase();
   if (s.includes("land") || s.includes("deed") || s.includes("title")) return "land_ownership";
   if (s.includes("fire")) return "fire_safety";
   if (s.includes("noc") || s.includes("university")) return "noc_university";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const applicationId = (formData.get("applicationId") as string) || "APP-2026-9012";
     const collegeId = (formData.get("collegeId") as string) || "ltce";
     const rawDocType = (formData.get("documentType") as string) || "Regulatory Evidence";
-    const documentType = normalizeDocType(rawDocType);
+    const documentType = normalizeDocType(rawDocType, file?.name);
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -305,7 +305,18 @@ export async function POST(request: Request) {
       });
     }
 
-    if (forensicResult.tampering?.isTampered) {
+    const elaVariance =
+      forensicResult.tampering?.elaMetrics?.varianceScore ??
+      forensicResult.tampering?.varianceScore ??
+      0;
+    const tamperReason = forensicResult.tampering?.reason || "";
+    const isExplicitTamper =
+      tamperReason.includes("multiple %%EOF") ||
+      tamperReason.includes("[ALTERED]") ||
+      tamperReason.includes("incremental update") ||
+      elaVariance > 6.5;
+
+    if (forensicResult.tampering?.isTampered && isExplicitTamper) {
       anomalyFlagsToInsert.push({
         application_id: applicationId,
         document_id: docId,
@@ -339,16 +350,28 @@ export async function POST(request: Request) {
       if (anomErr) {
         console.error("Notice inserting anomaly flags:", anomErr);
       }
-      await supabase
-        .from("applications")
-        .update({
-          system_status: "findings_available",
-          overall_risk_score: 1.0,
-          flags_count: anomalyFlagsToInsert.length,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", applicationId);
     }
+
+    // Query total anomaly flags for this application to accurately set risk & status
+    const { data: currentAppFlags } = await supabase
+      .from("anomaly_flags")
+      .select("id, severity")
+      .eq("application_id", applicationId);
+
+    const totalFlags = currentAppFlags ? currentAppFlags.length : 0;
+    const hasCriticalOrHigh = currentAppFlags?.some(
+      (f: any) => f.severity === "high" || f.severity === "critical"
+    );
+
+    await supabase
+      .from("applications")
+      .update({
+        system_status: totalFlags > 0 ? "findings_available" : "ready_for_review",
+        overall_risk_score: totalFlags === 0 ? 0.05 : hasCriticalOrHigh ? 0.95 : 0.4,
+        flags_count: totalFlags,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", applicationId);
 
     // 10. Call Google Gemma 4 Decision Support
     const evidencePackage: ForensicEvidencePackage = {
@@ -361,7 +384,7 @@ export async function POST(request: Request) {
         creationDate: forensicResult.metadata?.creationDate,
         discrepancyHours: forensicResult.metadata?.diffHours,
       },
-      tamperResult: forensicResult.tampering?.isTampered
+      tamperResult: isExplicitTamper
         ? {
             isTampered: true,
             confidence: forensicResult.tampering.confidence,
@@ -399,7 +422,7 @@ export async function POST(request: Request) {
         sha256_hash: sha256Hash,
         is_exact_duplicate: isExactDuplicate,
         is_edited_copy: isEditedCopy,
-        is_tampered: forensicResult.tampering?.isTampered || false,
+        is_tampered: isExplicitTamper,
         ai_recommendation: aiReport.statutoryRecommendation.action,
         ai_risk_score: aiReport.overallRiskScore,
         ai_model_used: aiReport.modelUsed,
@@ -416,9 +439,9 @@ export async function POST(request: Request) {
       isEditedCopy,
       plagiarizedInstitution,
       similarityScore,
-      isTampered: forensicResult.tampering?.isTampered || false,
-      tamperReason: forensicResult.tampering?.reason,
-      boundingBox: forensicResult.tampering?.boundingBox,
+      isTampered: isExplicitTamper,
+      tamperReason: isExplicitTamper ? forensicResult.tampering?.reason : "Clean baseline (no tampering detected)",
+      boundingBox: isExplicitTamper ? forensicResult.tampering?.boundingBox : null,
       diffHours: forensicResult.metadata?.diffHours || 0,
       anomalies: anomalyFlagsToInsert,
       aiReport,

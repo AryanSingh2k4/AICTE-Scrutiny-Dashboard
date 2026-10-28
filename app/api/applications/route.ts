@@ -54,15 +54,27 @@ export async function GET() {
       return NextResponse.json({ applications: [] });
     }
 
-    // Count uploaded documents per application
-    const { data: dbDocs } = await supabase
-      .from("documents")
-      .select("application_id");
+    // Count uploaded documents and anomaly flags directly per application
+    const [{ data: dbDocs }, { data: dbFlags }] = await Promise.all([
+      supabase.from("documents").select("application_id"),
+      supabase.from("anomaly_flags").select("application_id, severity"),
+    ]);
 
     const docCounts: Record<string, number> = {};
     if (dbDocs) {
       for (const d of dbDocs) {
         docCounts[d.application_id] = (docCounts[d.application_id] || 0) + 1;
+      }
+    }
+
+    const flagCounts: Record<string, number> = {};
+    const highFlagCounts: Record<string, number> = {};
+    if (dbFlags) {
+      for (const f of dbFlags) {
+        flagCounts[f.application_id] = (flagCounts[f.application_id] || 0) + 1;
+        if (f.severity === "high" || f.severity === "critical") {
+          highFlagCounts[f.application_id] = (highFlagCounts[f.application_id] || 0) + 1;
+        }
       }
     }
 
@@ -79,9 +91,9 @@ export async function GET() {
       };
 
       const docCount = docCounts[app.id] || 0;
-      const flags = app.flags_count || 0;
-      const riskScore = app.overall_risk_score || 0;
-      const risk: "high" | "medium" | "low" = riskScore > 0.6 || flags > 2 ? "high" : riskScore > 0.2 || flags > 0 ? "medium" : "low";
+      const flags = flagCounts[app.id] ?? (app.flags_count || 0);
+      const highFlags = highFlagCounts[app.id] ?? (flags > 0 ? 1 : 0);
+      const risk: "high" | "medium" | "low" = flags > 0 ? "high" : "low";
 
       const submittedDate = app.submitted_at ? new Date(app.submitted_at) : new Date();
 
@@ -99,8 +111,8 @@ export async function GET() {
         documentsTotal: 5,
         documentsReceived: docCount,
         findings: flags,
-        highFindings: flags > 0 ? Math.min(flags, 2) : 0,
-        status: (app.system_status as any) || "ready_for_review",
+        highFindings: highFlags,
+        status: flags > 0 ? "findings_available" : ((app.system_status as any) || "ready_for_review"),
         risk,
         officer: "Dr. Ananya Menon",
         lastAction: flags > 0 ? `${flags} potential issues detected` : "All regulatory pre-checks passed",
@@ -158,7 +170,7 @@ export async function POST(request: Request) {
         institution_id: meta.pid,
         academic_year: "2026-27",
         application_category: "EoA Renewal",
-        system_status: flagCount > 0 ? "findings_ready" : "ready_for_review",
+        system_status: flagCount > 0 ? "findings_available" : "ready_for_review",
         overall_risk_score: flagCount > 0 ? 0.75 : 0.05,
         flags_count: flagCount,
         submitted_at: new Date().toISOString(),

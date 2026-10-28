@@ -569,28 +569,9 @@ function InstitutionWorkspaceContent() {
 
       const realHash = result.sha256Hash || (await computeSHA256(file));
 
-      // 1. Check Exact Hash Duplicate
-      if (result.isExactDuplicate) {
-        setDuplicateBanner({
-          show: true,
-          hash: realHash,
-          matchedInstitution: result.exactCollidingInst || "Sardar Patel Institute of Technology",
-          matchedDoc: "Land Lease Deed",
-          message: `CRITICAL ALERT: Exact SHA-256 byte-stream duplicate match with document submitted by ${result.exactCollidingInst || "Sardar Patel Institute of Technology"}.`,
-        });
-      } 
-      // 2. Check Edited Copy / Spliced Document Plagiarism
-      else if (result.isEditedCopy) {
-        setDuplicateBanner({
-          show: true,
-          hash: realHash,
-          matchedInstitution: result.plagiarizedInstitution || "Sardar Patel Institute of Technology",
-          matchedDoc: "Document",
-          message: `CRITICAL INTEGRITY VIOLATION: Uploaded document shares ${Math.round(result.similarityScore * 100)}% identical text and phrases with document submitted by ${result.plagiarizedInstitution || "Sardar Patel Institute of Technology"}, but cryptographic hashes differ. Localized alterations/splicing detected!`,
-        });
-      } else {
-        setDuplicateBanner(null);
-      }
+      // The applicant portal only receives standard receipt confirmations;
+      // internal forensic alerts and plagiarism flags are reported exclusively to the AICTE Officer.
+      setDuplicateBanner(null);
 
       const sizeStr = (file.size / (1024 * 1024)).toFixed(2) + " MB";
       const nowStr =
@@ -604,7 +585,7 @@ function InstitutionWorkspaceContent() {
 
       const previewUrl = URL.createObjectURL(file);
 
-      // Update the selected document in checklist
+      // Update the selected document in checklist as clean uploaded
       setChecklist((prev) =>
         prev.map((doc) => {
           if (doc.id === selectedCategory) {
@@ -615,11 +596,7 @@ function InstitutionWorkspaceContent() {
               fileSize: sizeStr,
               hash: realHash,
               uploadDate: nowStr,
-              notes: result.isEditedCopy
-                ? `Altered clone detected (${Math.round(result.similarityScore * 100)}% similarity to ${result.plagiarizedInstitution}).`
-                : result.isTampered
-                ? `OpenCV ELA Tamper flagged: ${result.tamperReason}`
-                : `Sealed in compliance database. SHA-256: ${realHash.slice(0, 16)}...`,
+              notes: `Uploaded and cryptographically registered. SHA-256: ${realHash.slice(0, 16)}...`,
               previewUrl,
               isCustom: true,
             };
@@ -629,13 +606,7 @@ function InstitutionWorkspaceContent() {
       );
 
       setIsProcessing(false);
-      if (result.isEditedCopy) {
-        setToast(`CRITICAL: Edited copy of ${result.plagiarizedInstitution} document flagged!`);
-      } else if (result.isTampered) {
-        setToast(`Forensic Alert: Digital alteration detected by OpenCV ELA.`);
-      } else {
-        setToast(`File "${file.name}" uploaded and sealed into compliance database.`);
-      }
+      setToast(`Document "${file.name}" uploaded successfully.`);
     } catch (err: any) {
       console.error("Upload processing error:", err);
       setIsProcessing(false);
@@ -866,44 +837,7 @@ function InstitutionWorkspaceContent() {
               </div>
             )}
 
-            {/* Immediate High-Visibility Banner for Duplicate / Plagiarized Document */}
-            {duplicateBanner?.show && (
-              <div className="relative rounded-xl border-2 border-rust bg-[#fdf5f4] p-5 shadow-lift animate-fade-in">
-                <div className="flex items-start gap-3.5">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rust text-white shadow-sm">
-                    <ShieldAlert className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="chip border-rust/30 bg-rust text-white font-bold text-[10.5px] uppercase tracking-wide">
-                        Cross-Institutional Collision Flag
-                      </span>
-                      <span className="mono text-[11px] text-rust font-semibold">
-                        RULE EOA-PLAG-01 · CRITICAL ADVISORY
-                      </span>
-                    </div>
-                    <h3 className="mt-1.5 text-[16px] font-bold text-rust leading-snug">
-                      {duplicateBanner.message}
-                    </h3>
-                    <p className="mt-1.5 text-[12.5px] text-[#7d3223] leading-relaxed">
-                      The computed SHA-256 digest is <span className="mono font-bold bg-white px-1.5 py-0.5 rounded border border-rust/20">{duplicateBanner.hash}</span>. Under AICTE Approval Process Handbook (APH 2026–27 §4.1), educational campus documentation and statutory deeds must be exclusive, genuine, and unencumbered. Local alterations or spliced duplicates cannot be shared across multiple institutions.
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11.5px] border-t border-rust/20 pt-2.5 text-[#8f3e2e]">
-                      <span><strong>Originating College:</strong> {duplicateBanner.matchedInstitution}</span>
-                      <span><strong>Reference Doc:</strong> {duplicateBanner.matchedDoc}</span>
-                      <span><strong>AICTE Scrutiny Stage:</strong> Escalated to Regional Scrutiny Officer Dossier</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setDuplicateBanner(null)}
-                    className="text-muted hover:text-ink text-[12px] p-1"
-                    title="Dismiss warning"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+
 
             {/* Real File Upload Dropzone */}
             <section className="card p-5 overflow-hidden">

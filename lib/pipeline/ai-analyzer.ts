@@ -63,13 +63,182 @@ export interface AiAnalysisReport {
     suggestedConditions?: string[];
   };
   analyzedAt: string;
+  modelUsed?: string;
 }
 
 /**
- * Synthesizes multi-modal forensic telemetry, regulatory rule evaluations,
- * and authority verifications into an explainable, evidence-linked advisory report.
+ * Builds a concise, structured forensic telemetry summary for Gemma 4.
  */
-export function synthesizeForensicAnalysis(evidence: ForensicEvidencePackage): AiAnalysisReport {
+function formatEvidenceSummary(evidence: ForensicEvidencePackage): string {
+  const lines: string[] = [];
+  lines.push(`Institution: ${evidence.institutionName} (${evidence.applicationId})`);
+  if (evidence.documentName) lines.push(`Document: ${evidence.documentName}`);
+
+  if (evidence.tamperResult?.isTampered) {
+    lines.push(`- Tampering: Alteration detected (confidence ${Math.round(evidence.tamperResult.confidence * 100)}%), reason: ${evidence.tamperResult.reason}`);
+  }
+  if (evidence.crossInstitutionCollision?.isDuplicate) {
+    lines.push(`- Collision: SHA-256 duplicate match with ${evidence.crossInstitutionCollision.collidingInstitution}`);
+  }
+  if (evidence.metadata?.discrepancyHours && evidence.metadata.discrepancyHours > 48) {
+    lines.push(`- Metadata: Creation postdates stated execution by ${Math.round(evidence.metadata.discrepancyHours)} hours (>48h statutory tolerance)`);
+  }
+
+  for (const v of evidence.authorityVerifications || []) {
+    if (v.status !== "verified") {
+      lines.push(`- Authority Discrepancy (${v.issuer}): Status ${v.status} - ${v.detail}`);
+    }
+  }
+
+  for (const r of evidence.ruleEvaluations || []) {
+    if (r.status !== "PASS") {
+      lines.push(`- Non-compliance (${r.ruleId}): ${r.title} - ${r.reason}`);
+    }
+  }
+
+  if (lines.length <= 2) {
+    lines.push("- All statutory checks passed. Clean baseline with verified third-party registry records.");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Calls Google Gemma 4 (gemma-4-26b-a4b-it) to perform multi-modal forensic reasoning
+ * over the submitted evidence package and returns a statutory decision-support report.
+ */
+async function callGemma4Reasoning(evidence: ForensicEvidencePackage): Promise<AiAnalysisReport | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const model = "gemma-4-26b-a4b-it";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const prompt = `You are the AICTE Chief Scrutiny Advisory Officer for Academic Year 2026-27 evaluating an institution application under the AICTE Approval Process Handbook (APH 2026-27).
+
+Evaluate this forensic evidence package:
+${formatEvidenceSummary(evidence)}
+
+Provide your explainable statutory advisory decision under AICTE APH 2026-27.
+Format your statutory advisory evaluation as a JSON object with:
+{
+  "executiveSummary": "Detailed multi-sentence summary citing AICTE APH 2026-27 norms",
+  "overallRiskScore": 0.00 (clean application is 0.00, critical violations between 0.70 and 1.00),
+  "riskLevel": "low" | "medium" | "high",
+  "keyFindings": [
+    {
+      "category": "anomaly" | "compliance" | "verification" | "metadata",
+      "title": "string",
+      "severity": "critical" | "high" | "medium" | "low" | "info",
+      "confidence": 0.0 to 1.0,
+      "evidenceText": "string",
+      "boundingBox": { "x": 0, "y": 0, "w": 0, "h": 0 },
+      "aphReference": "string"
+    }
+  ],
+  "statutoryRecommendation": {
+    "action": "accept" | "request_clarification" | "recommend_physical_inspection" | "reject",
+    "rationale": "Clear statutory rationale citing relevant APH chapters",
+    "suggestedConditions": ["condition 1", "condition 2"]
+  }
+}
+Respond strictly with the JSON object.`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 2500,
+        }
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+    if (!res.ok) {
+      console.warn(`Gemma 4 API returned status ${res.status}`);
+      return null;
+    }
+
+    const d = await res.json();
+    const parts = d.candidates?.[0]?.content?.parts || [];
+    
+    // Find non-thought part which contains the final markdown JSON
+    const nonThoughtPart = parts.find((p: any) => !p.thought) || parts[parts.length - 1];
+    const text = nonThoughtPart?.text || "";
+    const match = text.match(/\{[\s\S]*\}/);
+
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]);
+
+    // Normalize recommendation action to standard schema enum
+    const rawAction = String(parsed.statutoryRecommendation?.action || "").toLowerCase();
+    let normalizedAction: AiAnalysisReport["statutoryRecommendation"]["action"] = "request_clarification";
+    if (rawAction.includes("accept")) {
+      normalizedAction = "accept";
+    } else if (rawAction.includes("inspection")) {
+      normalizedAction = "recommend_physical_inspection";
+    } else if (rawAction.includes("reject")) {
+      normalizedAction = "reject";
+    }
+
+    // Normalize risk level
+    const rawRiskLevel = String(parsed.riskLevel || "").toLowerCase();
+    let normalizedRiskLevel: AiAnalysisReport["riskLevel"] = "low";
+    if (rawRiskLevel.includes("high") || rawRiskLevel.includes("critical")) {
+      normalizedRiskLevel = "high";
+    } else if (rawRiskLevel.includes("medium")) {
+      normalizedRiskLevel = "medium";
+    }
+
+    return {
+      executiveSummary: parsed.executiveSummary || "Forensic evaluation completed by Gemma 4.",
+      overallRiskScore: typeof parsed.overallRiskScore === "number" ? parsed.overallRiskScore : (normalizedRiskLevel === "high" ? 0.95 : 0.0),
+      riskLevel: normalizedRiskLevel,
+      keyFindings: Array.isArray(parsed.keyFindings) ? parsed.keyFindings : [],
+      statutoryRecommendation: {
+        action: normalizedAction,
+        rationale: parsed.statutoryRecommendation?.rationale || "",
+        suggestedConditions: Array.isArray(parsed.statutoryRecommendation?.suggestedConditions)
+          ? parsed.statutoryRecommendation.suggestedConditions
+          : []
+      },
+      analyzedAt: new Date().toISOString(),
+      modelUsed: "gemma-4-26b-a4b-it (Google Gemma 4)"
+    };
+  } catch (err: any) {
+    console.warn("Gemma 4 call failed, falling back to deterministic template:", err.message);
+    return null;
+  }
+}
+
+/**
+ * Main export: Synthesizes multi-modal forensic telemetry via Google Gemma 4
+ * with graceful fallback to deterministic statutory rule synthesis if offline.
+ */
+export async function synthesizeForensicAnalysis(
+  evidence: ForensicEvidencePackage
+): Promise<AiAnalysisReport> {
+  const gemmaReport = await callGemma4Reasoning(evidence);
+  if (gemmaReport) {
+    return gemmaReport;
+  }
+  const fallback = synthesizeForensicAnalysisDeterministic(evidence);
+  fallback.modelUsed = "deterministic-baseline-engine";
+  return fallback;
+}
+
+/**
+ * Deterministic baseline generator for offline or fallback operation.
+ */
+export function synthesizeForensicAnalysisDeterministic(evidence: ForensicEvidencePackage): AiAnalysisReport {
   const findings: AiAnalysisReport["keyFindings"] = [];
   const analyzedAt = new Date().toISOString();
 

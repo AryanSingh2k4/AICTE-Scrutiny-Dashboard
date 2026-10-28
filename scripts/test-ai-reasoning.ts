@@ -78,7 +78,7 @@ async function testSpitBaseline() {
     ],
   };
 
-  const report = synthesizeForensicAnalysis(spitEvidence);
+  const report = await synthesizeForensicAnalysis(spitEvidence);
 
   console.log("SPIT Report Summary:");
   console.log("  - Overall Risk Score:", report.overallRiskScore);
@@ -151,7 +151,7 @@ async function testLtceHighRisk() {
     ],
   };
 
-  const report = synthesizeForensicAnalysis(ltceEvidence);
+  const report = await synthesizeForensicAnalysis(ltceEvidence);
 
   console.log("LTCE Report Summary:");
   console.log("  - Overall Risk Score:", report.overallRiskScore);
@@ -220,7 +220,7 @@ async function testLabCarpetAreaShortfall() {
     ],
   };
 
-  const report = synthesizeForensicAnalysis(labEvidence);
+  const report = await synthesizeForensicAnalysis(labEvidence);
   console.log("Lab Shortfall Report Summary:");
   console.log("  - Action:", report.statutoryRecommendation.action);
   console.log("  - Key Findings:", report.keyFindings.map((f) => f.title));
@@ -385,7 +385,7 @@ async function testDatabaseValidationIntegration() {
         : undefined,
     };
 
-    const aiReport = synthesizeForensicAnalysis(evidencePackage);
+    const aiReport = await synthesizeForensicAnalysis(evidencePackage);
 
     console.log(`  Application: ${appId} (${institution?.name})`);
     console.log(`  - Overall Risk Score: ${aiReport.overallRiskScore}`);

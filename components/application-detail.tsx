@@ -728,6 +728,11 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-pine">
                         <Sparkles className="h-3.5 w-3.5" /> AI Decision Support
+                        {aiAnalysis.modelUsed && (
+                          <span className="ml-1.5 rounded bg-pine/10 px-1.5 py-0.5 text-[9.5px] font-mono normal-case text-pine font-semibold">
+                            {aiAnalysis.modelUsed.includes("gemma") ? "Gemma 4" : aiAnalysis.modelUsed}
+                          </span>
+                        )}
                       </div>
                       <span className={cn(
                         "rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",

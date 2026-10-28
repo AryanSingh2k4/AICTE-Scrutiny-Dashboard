@@ -303,7 +303,7 @@ export async function POST(
       authorityVerifications: authorityVerifs,
     };
 
-    const aiAnalysis = synthesizeForensicAnalysis(evidencePackage);
+    const aiAnalysis = await synthesizeForensicAnalysis(evidencePackage);
 
     return NextResponse.json({
       documentId,

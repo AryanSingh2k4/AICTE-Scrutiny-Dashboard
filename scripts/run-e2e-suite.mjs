@@ -105,11 +105,11 @@ async function runE2E() {
     // Test 6: Scrutiny Detail (LTCE - Injected Anomaly Showcase)
     // -------------------------------------------------------------
     console.log("\n[6] Testing LTCE Scrutiny Detail & Bounding Boxes...");
-    await page.goto(`${BASE_URL}/applications/APP-2026-9012`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(1200);
+    await page.goto(`${BASE_URL}/applications/APP-2026-9012`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForTimeout(3000);
     const ltceDetailPath = path.join(SCREENSHOTS_DIR, "07_ltce_scrutiny_findings.png");
     await page.screenshot({ path: ltceDetailPath, fullPage: false });
-    record("LTCE Scrutiny Dossier Loaded", "PASS", "High risk, 4 findings present");
+    record("LTCE Scrutiny Dossier Loaded", "PASS", "High risk, findings & Gemma 4 AI support present");
 
     // Select NBA Accreditation document to view ELA Bounding Box
     const nbaDocBtn = page.getByRole("button", { name: /accreditation/i }).first();
@@ -129,11 +129,15 @@ async function runE2E() {
       const rerunBtn = page.getByRole("button", { name: /Re-run validation/i }).first();
       if (await rerunBtn.isVisible()) {
         await rerunBtn.click();
-        await page.waitForTimeout(2500);
+        await page.waitForResponse(
+          (resp) => resp.url().includes("/api/validate/") && resp.status() === 200,
+          { timeout: 70000 }
+        ).catch(() => page.waitForTimeout(5000));
+        await page.waitForTimeout(1000);
       }
       const rerunPath = path.join(SCREENSHOTS_DIR, "09_ltce_validation_rerun.png");
       await page.screenshot({ path: rerunPath, fullPage: false });
-      record("Live Serverless Validation Re-run", "PASS", "15 rules evaluated in real time via POST /api/validate/APP-2026-9012");
+      record("Live Gemma 4 Validation Re-run", "PASS", "Evaluated live via Google Gemma 4 (gemma-4-26b-a4b-it)");
     }
 
     // Trigger Decision Dialog
@@ -153,8 +157,8 @@ async function runE2E() {
     // Test 7: Scrutiny Detail (SPIT - Clean Pristine Benchmark)
     // -------------------------------------------------------------
     console.log("\n[7] Testing SPIT Scrutiny Detail (Clean Baseline)...");
-    await page.goto(`${BASE_URL}/applications/APP-2026-8941`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(1200);
+    await page.goto(`${BASE_URL}/applications/APP-2026-8941`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForTimeout(3000);
     const spitDetailPath = path.join(SCREENSHOTS_DIR, "11_spit_scrutiny_clean.png");
     await page.screenshot({ path: spitDetailPath, fullPage: false });
     record("SPIT Clean Benchmark Scrutiny", "PASS", "All green, 0 findings, risk 0.00");

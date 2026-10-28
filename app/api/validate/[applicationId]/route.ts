@@ -380,7 +380,7 @@ export async function POST(
         : undefined,
     };
 
-    const aiAnalysis = synthesizeForensicAnalysis(evidencePackage);
+    const aiAnalysis = await synthesizeForensicAnalysis(evidencePackage);
 
     // 9. Compute risk score, findings count, flags count & system status
     const failCount = findings.filter((f) => f.status === "FAIL").length;

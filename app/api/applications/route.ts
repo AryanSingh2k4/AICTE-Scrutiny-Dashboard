@@ -4,12 +4,17 @@ import type { Application } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const COLLEGE_META: Record<string, { name: string; shortName: string; city: string; state: string; programme: string; intake: number; trust: string; pid: string }> = {
+const COLLEGE_META: Record<string, { name: string; shortName: string; city: string; state: string; address: string; establishedYear: number; principal: string; email: string; phone: string; programme: string; intake: number; trust: string; pid: string }> = {
   "APP-2026-8941": {
     name: "Sardar Patel Institute of Technology",
     shortName: "SPIT",
     city: "Mumbai",
     state: "Maharashtra",
+    address: "Bhavan's Campus, Munshi Nagar, Andheri (West), Mumbai 400058",
+    establishedYear: 1962,
+    principal: "Dr. B. K. Murthy",
+    email: "principal@sardarpatel.edu.in",
+    phone: "+91 22 2670 7440",
     programme: "Computer Engineering & Technology",
     intake: 300,
     trust: "Bharatiya Vidya Bhavan (Reg. F-142(M))",
@@ -20,6 +25,11 @@ const COLLEGE_META: Record<string, { name: string; shortName: string; city: stri
     shortName: "LTCE",
     city: "Navi Mumbai",
     state: "Maharashtra",
+    address: "Sector 4, Vikas Nagar, Koparkhairane, Navi Mumbai 400709",
+    establishedYear: 1994,
+    principal: "Dr. Subhash K. Shinde",
+    email: "principal@ltce.in",
+    phone: "+91 22 2754 1005",
     programme: "Computer Engineering & Technology",
     intake: 360,
     trust: "Lokmanya Tilak Jankalyan Shikshan Sanstha (Reg. F-2034)",
@@ -30,6 +40,11 @@ const COLLEGE_META: Record<string, { name: string; shortName: string; city: stri
     shortName: "DMCE",
     city: "Navi Mumbai",
     state: "Maharashtra",
+    address: "Plot No. 98, Sector 3, Airoli, Navi Mumbai 400708",
+    establishedYear: 1983,
+    principal: "Dr. Sudhirkumar D. Sawarkar",
+    email: "principal@dmce.ac.in",
+    phone: "+91 22 2779 2020",
     programme: "Civil & Computer Engineering",
     intake: 420,
     trust: "Nagar Yuwak Shikshan Sanstha, Airoli (Reg. E-1456)",
@@ -139,13 +154,22 @@ export async function POST(request: Request) {
     const supabase = getServerSupabase();
 
     // 1. Ensure institution exists
-    await supabase.from("institutions").upsert({
+    const { error: institutionError } = await supabase.from("institutions").upsert({
       id: meta.pid,
       name: meta.name,
+      address: meta.address,
       city: meta.city,
       state: meta.state,
+      established_year: meta.establishedYear,
       trust_society: meta.trust,
+      principal_name: meta.principal,
+      email: meta.email,
+      phone: meta.phone,
     }, { onConflict: "id" });
+
+    if (institutionError) {
+      return NextResponse.json({ error: `Could not persist institution: ${institutionError.message}` }, { status: 500 });
+    }
 
     // 2. Count documents and anomalies already uploaded
     const { data: docs } = await supabase

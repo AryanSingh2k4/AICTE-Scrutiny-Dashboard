@@ -43,6 +43,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `File is ${(file.size / (1024 * 1024)).toFixed(1)} MB. The maximum allowed size is 25 MB.` },
+        { status: 413 }
+      );
+    }
+
     const supabase = getServerSupabase();
 
     // 1. Read bytes and compute real SHA-256
@@ -76,11 +84,16 @@ export async function POST(request: Request) {
     }
 
     // 4. Ensure institution and application exist so foreign key constraints are satisfied
-    const COLLEGE_META_INFO: Record<string, { name: string; city: string; state: string; trust: string; pid: string }> = {
+    const COLLEGE_META_INFO: Record<string, { name: string; city: string; state: string; address: string; establishedYear: number; principal: string; email: string; phone: string; trust: string; pid: string }> = {
       "APP-2026-8941": {
         name: "Sardar Patel Institute of Technology",
         city: "Mumbai",
         state: "Maharashtra",
+        address: "Bhavan's Campus, Munshi Nagar, Andheri (West), Mumbai 400058",
+        establishedYear: 1962,
+        principal: "Dr. B. K. Murthy",
+        email: "principal@sardarpatel.edu.in",
+        phone: "+91 22 2670 7440",
         trust: "Bharatiya Vidya Bhavan (Reg. F-142(M))",
         pid: "1-3686579303",
       },
@@ -88,6 +101,11 @@ export async function POST(request: Request) {
         name: "Lokmanya Tilak College of Engineering (LTCE)",
         city: "Navi Mumbai",
         state: "Maharashtra",
+        address: "Sector 4, Vikas Nagar, Koparkhairane, Navi Mumbai 400709",
+        establishedYear: 1994,
+        principal: "Dr. Subhash K. Shinde",
+        email: "principal@ltce.in",
+        phone: "+91 22 2754 1005",
         trust: "Lokmanya Tilak Jankalyan Shikshan Sanstha (Reg. F-2034)",
         pid: "1-10358461",
       },
@@ -95,6 +113,11 @@ export async function POST(request: Request) {
         name: "Datta Meghe College of Engineering (DMCE)",
         city: "Navi Mumbai",
         state: "Maharashtra",
+        address: "Plot No. 98, Sector 3, Airoli, Navi Mumbai 400708",
+        establishedYear: 1983,
+        principal: "Dr. Sudhirkumar D. Sawarkar",
+        email: "principal@dmce.ac.in",
+        phone: "+91 22 2779 2020",
         trust: "Nagar Yuwak Shikshan Sanstha (Reg. E-1456)",
         pid: "1-4589211021",
       },
@@ -104,26 +127,40 @@ export async function POST(request: Request) {
       name: collegeId === "sardarpatel" ? "Sardar Patel Institute of Technology" : collegeId === "ltce" ? "Lokmanya Tilak College of Engineering (LTCE)" : "Datta Meghe College of Engineering (DMCE)",
       city: "Maharashtra",
       state: "Maharashtra",
+      address: "Maharashtra",
+      establishedYear: 1983,
+      principal: "Principal",
+      email: "principal@institution.ac.in",
+      phone: "+91 22 0000 0000",
       trust: "Educational Trust",
       pid: collegeId === "sardarpatel" ? "1-3686579303" : collegeId === "ltce" ? "1-10358461" : "1-4589211021",
     };
 
     try {
-      await supabase.from("institutions").upsert({
+      const { error: institutionError } = await supabase.from("institutions").upsert({
         id: instMeta.pid,
         name: instMeta.name,
+        address: instMeta.address,
         city: instMeta.city,
         state: instMeta.state,
+        established_year: instMeta.establishedYear,
         trust_society: instMeta.trust,
+        principal_name: instMeta.principal,
+        email: instMeta.email,
+        phone: instMeta.phone,
       }, { onConflict: "id" });
 
-      await supabase.from("applications").upsert({
+      if (institutionError) throw new Error(institutionError.message);
+
+      const { error: applicationError } = await supabase.from("applications").upsert({
         id: applicationId,
         institution_id: instMeta.pid,
         academic_year: "2026-27",
         application_category: "EoA Renewal",
         system_status: "submitted",
       }, { onConflict: "id" });
+
+      if (applicationError) throw new Error(applicationError.message);
     } catch (e: any) {
       console.warn("Notice ensuring application exists:", e.message);
     }
@@ -249,7 +286,7 @@ export async function POST(request: Request) {
 
     // 8. Persist new document record in Supabase documents table
     const docId = `DOC-${Date.now()}-${cleanFileName.slice(0, 16)}`;
-    await supabase.from("documents").upsert({
+    const { error: documentError } = await supabase.from("documents").upsert({
       id: docId,
       application_id: applicationId,
       document_type: documentType,
@@ -267,6 +304,13 @@ export async function POST(request: Request) {
       },
       created_at: new Date().toISOString(),
     });
+
+    if (documentError) {
+      return NextResponse.json(
+        { error: `Could not persist document: ${documentError.message}` },
+        { status: 500 }
+      );
+    }
 
     // 9. Generate Anomaly Flags
     const anomalyFlagsToInsert: any[] = [];

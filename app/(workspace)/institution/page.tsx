@@ -540,6 +540,14 @@ function InstitutionWorkspaceContent() {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      setToast(
+        `"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Maximum allowed size is 25 MB.`
+      );
+      return;
+    }
+
     setIsProcessing(true);
     setProcessingStage("Uploading document to ScrutiniX Forensic Pipeline…");
 
@@ -819,7 +827,7 @@ function InstitutionWorkspaceContent() {
                     <h4 className="mt-1 text-[14px] font-bold text-ink">
                       {officerDecisions[0].outcome === "reject"
                         ? "Statutory Rejection / Show Cause Notice Issued"
-                        : officerDecisions[0].outcome === "clarification"
+                        : officerDecisions[0].outcome === "request_clarification"
                         ? "Formal Clarification Requested by Scrutiny Officer"
                         : "Referral for Physical Inspection Scheduled"}
                     </h4>
@@ -1266,8 +1274,8 @@ function InstitutionWorkspaceContent() {
               <div className="space-y-3.5">
                 {officerDecisions.map((dec: any) => {
                   const isReject = dec.outcome === "reject";
-                  const isClarify = dec.outcome === "clarification";
-                  const isInspect = dec.outcome === "inspection";
+                  const isClarify = dec.outcome === "request_clarification";
+                  const isInspect = dec.outcome === "refer_for_inspection";
                   const isAccept = dec.outcome === "accept";
 
                   return (

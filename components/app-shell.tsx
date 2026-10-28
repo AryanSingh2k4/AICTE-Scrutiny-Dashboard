@@ -76,6 +76,12 @@ const roleNames: Record<string, { label: string; name: string; initials: string;
   auditor: { label: "Independent Auditor", name: "Meera Rao", initials: "MR" },
 };
 
+const institutionContext: Record<string, { name: string; short: string; pid: string; principal: string }> = {
+  dattameghe: { name: "Datta Meghe College of Engineering (DMCE)", short: "DM", pid: "1-4589211021", principal: "Dr. Sudhirkumar D. Sawarkar" },
+  ltce: { name: "Lokmanya Tilak College of Engineering (LTCE)", short: "LT", pid: "1-10358461", principal: "Dr. Subhash K. Shinde" },
+  sardarpatel: { name: "Sardar Patel Institute of Technology (SPIT)", short: "SP", pid: "1-3686579303", principal: "Dr. B. K. Murthy" },
+};
+
 const breadcrumbLabels: Record<string, string> = {
   overview: "Desk Overview",
   applications: "Applications",
@@ -524,6 +530,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const isInstitution = role === "institution" || pathname.startsWith("/institution");
+  const collegeContext = institutionContext[college] ?? institutionContext.sardarpatel;
   const segments = pathname.split("/").filter(Boolean);
   const crumb = segments[0] ? breadcrumbLabels[segments[0]] ?? "Application detail" : "Desk Overview";
 
@@ -562,14 +569,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-pine-soft text-pine">
                   <Building2 className="h-3.5 w-3.5" />
                 </span>
-                <span className="font-semibold text-ink">
-                  {college === "ltce"
-                    ? "Lokmanya Tilak College of Engineering (LTCE)"
-                    : "Sardar Patel Institute of Technology"}
-                </span>
+                <span className="font-semibold text-ink">{collegeContext.name}</span>
                 <span className="text-muted">·</span>
                 <span className="mono text-[11px] text-muted">
-                  PID: {college === "ltce" ? "1-10358461" : "1-3686579303"}
+                  PID: {collegeContext.pid}
                 </span>
                 <span className="text-muted">·</span>
                 <span className="chip border-pine/20 bg-pine-soft text-pine text-[11px]">
@@ -618,13 +621,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-pine-soft text-[11px] font-bold text-pine-deep ring-1 ring-pine/10"
                 title={
                   isInstitution
-                    ? college === "ltce"
-                      ? "Dr. Subhash K. Shinde · Principal, LTCE"
-                      : "Principal · Sardar Patel Inst."
+                    ? `${collegeContext.principal} · Principal, ${collegeContext.short}`
                     : "Dr. Ananya Menon · Scrutiny Officer"
                 }
               >
-                {isInstitution ? (college === "ltce" ? "LT" : "SP") : "AM"}
+                {isInstitution ? collegeContext.short : "AM"}
               </span>
             </div>
           </div>

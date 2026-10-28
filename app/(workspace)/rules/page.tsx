@@ -21,6 +21,7 @@ import {
 import { applications, rules, ruleGroups } from "@/lib/mock-data";
 import { cn, severity } from "@/lib/display";
 import { PageHeader, SectionHeading } from "@/components/ui";
+import { parse as parseYaml } from "yaml";
 
 type EditorTab = "yaml" | "fields" | "history";
 
@@ -138,6 +139,19 @@ export default function RulesPage() {
   }
 
   async function publish() {
+    let spec: Record<string, unknown>;
+    try {
+      const parsed = parseYaml(yaml);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        setToast(`Cannot publish ${currentRule.id}: the YAML must define a rule object.`);
+        return;
+      }
+      spec = parsed as Record<string, unknown>;
+    } catch (err: any) {
+      setToast(`Cannot publish ${currentRule.id}: invalid YAML — ${err?.message || "parse error"}.`);
+      return;
+    }
+
     try {
       const res = await fetch("/api/rules", {
         method: "POST",
@@ -147,18 +161,19 @@ export default function RulesPage() {
           active,
           severity: severityValue,
           rule_spec: {
-            ...currentRule,
+            ...spec,
+            id: currentRule.id,
             threshold,
             severity: severityValue,
-            active,
           },
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Rule publish failed");
       setToast(data.message || `${currentRule.id} published as a new rule version. The change is sealed in the audit chain.`);
     } catch (err: any) {
       console.error("Rule publish error:", err);
-      setToast(`${currentRule.id} published as a new rule version.`);
+      setToast(`Could not publish ${currentRule.id}: ${err?.message || "request failed"}.`);
     }
   }
 

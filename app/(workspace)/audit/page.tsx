@@ -28,12 +28,38 @@ import type { AuditEntry } from "@/lib/types";
 
 const actionFilters = [
   { value: "all", label: "All events" },
-  { value: "officer.decision.recorded", label: "Officer decisions" },
-  { value: "validation.run.completed", label: "Validation runs" },
-  { value: "document.viewed", label: "Document views" },
-  { value: "rule.updated", label: "Rule changes" },
-  { value: "issuer.verification.failed", label: "Issuer failures" },
+  { value: "decisions", label: "Officer decisions" },
+  { value: "validation", label: "Validation runs" },
+  { value: "documents", label: "Document events" },
+  { value: "rules", label: "Rule changes" },
+  { value: "anomalies", label: "Anomalies & failures" },
 ];
+
+function matchesActionFilter(action: string, filter: string) {
+  const normalized = action.toUpperCase();
+  switch (filter) {
+    case "decisions":
+      return normalized.startsWith("DECISION_");
+    case "validation":
+      return normalized.startsWith("REVALIDATE") || normalized.startsWith("VALIDAT");
+    case "documents":
+      return normalized.startsWith("DOCUMENT_");
+    case "rules":
+      return normalized.startsWith("UPDATE_RULE") || normalized.startsWith("RULE_");
+    case "anomalies":
+      return normalized.startsWith("ANOMALY_") || /FAIL|BROKEN|REJECT/.test(normalized);
+    default:
+      return true;
+  }
+}
+
+function actionTone(action: string) {
+  const normalized = action.toUpperCase();
+  if (/ANOMALY|FAIL|BROKEN|REJECT/.test(normalized)) return "bg-rust";
+  if (normalized.startsWith("DECISION_")) return "bg-pine";
+  if (normalized.includes("RULE")) return "bg-ochre";
+  return "bg-slate";
+}
 
 export default function AuditPage() {
   const [query, setQuery] = useState("");
@@ -88,7 +114,7 @@ export default function AuditPage() {
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
     return entries.filter((entry) => {
-      if (actionFilter !== "all" && entry.action !== actionFilter) return false;
+      if (!matchesActionFilter(entry.action, actionFilter)) return false;
       if (normalized && !`${entry.action} ${entry.actor} ${entry.entity} ${entry.id}`.toLowerCase().includes(normalized)) return false;
       return true;
     });
@@ -100,21 +126,19 @@ export default function AuditPage() {
       const res = await fetch("/api/audit/verify");
       const data = await res.json();
       setVerifyResult(data);
-      setVerified(true);
+
+      const chainOk = res.ok && data.status === "ok";
+      setVerified(chainOk);
       setToast(
-        `Chain integrity verified via Supabase RPC verify_audit_chain: ${data.total_entries} entries verified via ${data.algorithm || "SHA-256 Hash Chain"}. Broken ID: ${data.first_broken_id || "none"}.`
+        chainOk
+          ? `Chain integrity verified via Supabase RPC verify_audit_chain: ${data.total_entries} entries verified via ${data.algorithm || "SHA-256 Hash Chain"}. Broken ID: ${data.first_broken_id || "none"}.`
+          : `Chain verification reported "${data.status || "error"}"${data.message ? `: ${data.message}` : ` — first broken ID: ${data.first_broken_id || "unknown"}`}.`
       );
     } catch (err: any) {
       console.error("Chain verification error:", err);
-      setVerifyResult({
-        status: "ok",
-        total_entries: entries.length,
-        first_broken_id: null,
-        verified_at: new Date().toISOString(),
-        algorithm: "SHA-256 Hash Chain",
-      });
-      setVerified(true);
-      setToast(`Chain integrity verified: ${entries.length} entries checked. Broken ID: none.`);
+      setVerifyResult(null);
+      setVerified(false);
+      setToast(`Chain verification failed: ${err?.message || "unable to reach the audit verification endpoint"}.`);
     } finally {
       setVerifying(false);
     }
@@ -209,7 +233,7 @@ export default function AuditPage() {
                       <td className="px-4 py-2.5"><span className="mono text-[12px] text-muted">#{entry.sequence}</span></td>
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-2">
-                          <span className={cn("h-1.5 w-1.5 rounded-full", entry.action.includes("failed") ? "bg-rust" : entry.action.includes("decision") ? "bg-pine" : entry.action.includes("rule") ? "bg-ochre" : "bg-slate")} />
+                          <span className={cn("h-1.5 w-1.5 rounded-full", actionTone(entry.action))} />
                           <span className="mono text-[12.5px] font-medium text-ink">{entry.action}</span>
                         </div>
                       </td>
@@ -226,7 +250,7 @@ export default function AuditPage() {
           </div>
           {filtered.length === 0 ? <div className="px-5 py-12 text-center text-[12px] text-muted">No entries match the current filter.</div> : null}
           <div className="flex items-center justify-between border-t border-line bg-[#faf8f2] px-4 py-2.5">
-            <span className="text-[12px] text-muted">Showing the 8 most recent entries · full log available via export.</span>
+            <span className="text-[12px] text-muted">Showing {filtered.length} of {entries.length} entries · full log available via export.</span>
             <div className="flex items-center gap-1">
               <button className="flex h-7 items-center gap-1 rounded border border-line bg-surface px-2.5 text-[11.5px] text-muted"><ChevronRight className="h-3 w-3 rotate-180" /> Prev</button>
               <button className="flex h-7 items-center gap-1 rounded border border-line bg-surface px-2.5 text-[11.5px] text-muted">Next <ChevronRight className="h-3 w-3" /></button>
@@ -296,9 +320,9 @@ export default function AuditPage() {
               ))}
             </div>
             <div className="mt-3 space-y-1.5 text-[12px]">
-              <div className="flex justify-between"><span className="text-muted">Entries checked</span><span className="mono">{verified ? "1,284" : "—"}</span></div>
-              <div className="flex justify-between"><span className="text-muted">First broken</span><span className="mono text-pine">{verified ? "none" : "—"}</span></div>
-              <div className="flex justify-between"><span className="text-muted">Last verified</span><span className="mono">{verified ? "just now" : "09:58 IST"}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Entries checked</span><span className="mono">{verified ? (verifyResult?.total_entries ?? entries.length) : "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted">First broken</span><span className={cn("mono", verified ? (verifyResult?.first_broken_id ? "text-rust" : "text-pine") : "text-ink")}>{verified ? verifyResult?.first_broken_id || "none" : "—"}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Last verified</span><span className="mono">{verified && verifyResult?.verified_at ? new Date(verifyResult.verified_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) + " IST" : "—"}</span></div>
             </div>
             <button onClick={verifyChain} disabled={verifying} className="btn btn-secondary mt-3 h-9 w-full text-[12.5px]">
               {verifying ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}

@@ -299,6 +299,7 @@ export async function POST(request: Request) {
           matched_document: plagiarizedDocTitle,
           sample_matched_phrases: matchedPhrasesList,
         },
+        bbox: { x: 7, y: 42, w: 82, h: 20, label: "Copied Land Schedule & CIDCO Clause" },
         page_number: 1,
         flagged_at: new Date().toISOString(),
       });

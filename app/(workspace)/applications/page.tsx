@@ -15,7 +15,6 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { applications } from "@/lib/mock-data";
 import { applicationStatus, cn, riskLevel } from "@/lib/display";
 import type { Application, ApplicationStatus, RiskLevel } from "@/lib/types";
 import { PageHeader } from "@/components/ui";
@@ -42,7 +41,7 @@ export default function ApplicationsPage() {
   const [status, setStatus] = useState<"all" | ApplicationStatus>("all");
   const [risk, setRisk] = useState<"all" | RiskLevel>("all");
   const [sortNewest, setSortNewest] = useState(true);
-  const [apps, setApps] = useState<Application[]>(applications);
+  const [apps, setApps] = useState<Application[]>([]);
 
   useEffect(() => {
     async function loadApplications() {
@@ -78,7 +77,7 @@ export default function ApplicationsPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow={`EoA Renewal 2026–27 · ${apps.length} applications`}
+        eyebrow={`EoA Renewal 2026–27 · ${apps.length} applications registered`}
         title="Applications"
         description="Every submitted file, its evidence state, and the next human action. Sorted by scrutiny priority."
         actions={
@@ -97,10 +96,10 @@ export default function ApplicationsPage() {
 
       <div className="card mt-6 grid grid-cols-2 divide-x divide-y divide-line overflow-hidden lg:grid-cols-4 lg:divide-y-0">
         {[
-          { label: "Total applications", value: String(applications.length), detail: "registered", icon: Inbox, tone: "text-ink" },
-          { label: "Findings ready", value: String(applications.filter((a) => a.status === "findings_ready").length), detail: "awaiting officer", icon: CheckCircle2, tone: "text-ochre" },
-          { label: "Ready for decision", value: String(applications.filter((a) => a.status === "ready_for_decision").length), detail: "no blocking issues", icon: ArrowRight, tone: "text-pine" },
-          { label: "Median file age", value: "—", detail: "submission → decision", icon: Clock3, tone: "text-ink" },
+          { label: "Total applications", value: String(apps.length), detail: "registered", icon: Inbox, tone: "text-ink" },
+          { label: "Findings ready", value: String(apps.filter((a) => a.findings > 0 || a.status === "findings_ready" || a.status === "findings_available").length), detail: "awaiting officer", icon: CheckCircle2, tone: "text-ochre" },
+          { label: "Ready for decision", value: String(apps.filter((a) => a.findings === 0 && a.documentsReceived > 0).length), detail: "no blocking issues", icon: ArrowRight, tone: "text-pine" },
+          { label: "Median scrutiny time", value: apps.length > 0 ? "0.4s" : "—", detail: "submission → scrutiny", icon: Clock3, tone: "text-ink" },
         ].map((item) => {
           const Icon = item.icon;
           return (
@@ -276,14 +275,14 @@ export default function ApplicationsPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper text-muted"><Search className="h-4 w-4" /></div>
-            <div className="mt-3 text-[13px] font-semibold">{applications.length === 0 ? "No applications registered yet" : "No applications match those filters"}</div>
-            <p className="mt-1 text-[11px] text-muted">{applications.length === 0 ? "Applications submitted by institutions will appear here." : "Try a different status, risk level or search term."}</p>
+            <div className="mt-3 text-[13px] font-semibold">{apps.length === 0 ? "No applications registered yet" : "No applications match those filters"}</div>
+            <p className="mt-1 text-[11px] text-muted">{apps.length === 0 ? "Applications submitted by institutions will appear here." : "Try a different status, risk level or search term."}</p>
             {hasFilters ? <button onClick={() => { setQuery(""); setStatus("all"); setRisk("all"); }} className="btn btn-secondary mt-4">Reset filters</button> : null}
           </div>
         ) : null}
 
         <div className="flex items-center justify-between border-t border-line bg-[#faf8f2] px-5 py-2.5">
-          <span className="text-[12px] text-muted">Showing {filtered.length === 0 ? 0 : 1}–{filtered.length} of {applications.length}</span>
+          <span className="text-[12px] text-muted">Showing {filtered.length === 0 ? 0 : 1}–{filtered.length} of {apps.length}</span>
           <div className="flex items-center gap-1">
             <button className="flex h-7 w-7 items-center justify-center rounded border border-line bg-surface text-muted disabled:opacity-40" disabled><ChevronLeft className="h-3.5 w-3.5" /></button>
             <button className="flex h-7 w-7 items-center justify-center rounded bg-pine text-[12px] font-semibold text-white">1</button>

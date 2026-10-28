@@ -646,71 +646,12 @@ function InstitutionWorkspaceContent() {
           </p>
         </div>
 
-        {/* Quick Actions & College Switcher */}
+        {/* Institution Badge & Quick Actions */}
         <div className="flex flex-col sm:items-end gap-2.5">
-          {/* 1-Click Institution Switcher */}
-          <div className="flex items-center gap-1.5 bg-paper p-1 rounded-lg border border-line">
-            <span className="text-[11px] font-semibold text-muted px-2 uppercase tracking-wider">Institution:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setCollegeId("sardarpatel");
-                setChecklist(collegesData.sardarpatel.initialDocs);
-                router.push(`/institution?tab=${currentTab}&college=sardarpatel`);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem("scrutinix-college", "sardarpatel");
-                }
-              }}
-              className={cn(
-                "px-3 py-1.5 text-[11.5px] font-semibold rounded-md transition-all flex items-center gap-1.5",
-                collegeId === "sardarpatel"
-                  ? "bg-pine text-white shadow-sm"
-                  : "text-muted hover:text-ink hover:bg-surface"
-              )}
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              <span>Sardar Patel (SPIT)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCollegeId("ltce");
-                setChecklist(collegesData.ltce.initialDocs);
-                router.push(`/institution?tab=${currentTab}&college=ltce`);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem("scrutinix-college", "ltce");
-                }
-              }}
-              className={cn(
-                "px-3 py-1.5 text-[11.5px] font-semibold rounded-md transition-all flex items-center gap-1.5",
-                collegeId === "ltce"
-                  ? "bg-pine text-white shadow-sm"
-                  : "text-muted hover:text-ink hover:bg-surface"
-              )}
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              <span>Lokmanya Tilak (LTCE)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCollegeId("dattameghe");
-                setChecklist(collegesData.dattameghe.initialDocs);
-                router.push(`/institution?tab=${currentTab}&college=dattameghe`);
-                if (typeof window !== "undefined") {
-                  window.localStorage.setItem("scrutinix-college", "dattameghe");
-                }
-              }}
-              className={cn(
-                "px-3 py-1.5 text-[11.5px] font-semibold rounded-md transition-all flex items-center gap-1.5",
-                collegeId === "dattameghe"
-                  ? "bg-pine text-white shadow-sm"
-                  : "text-muted hover:text-ink hover:bg-surface"
-              )}
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              <span>Datta Meghe (DMCE)</span>
-            </button>
+          {/* Authenticated Institution Badge (Locked to logged-in college) */}
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-line bg-paper text-[12px] font-medium text-muted shadow-xs">
+            <Building2 className="h-4 w-4 text-pine" />
+            <span>Signed in: <strong className="text-ink font-semibold">{college.name}</strong> (<span className="mono font-semibold text-pine">{college.shortName}</span>)</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -751,7 +692,7 @@ function InstitutionWorkspaceContent() {
       <div className="flex items-center gap-1 border-b border-line overflow-x-auto no-scrollbar">
         {[
           { key: "submission", label: "1. Document Submission", icon: CloudUpload, badge: `${uploadedCount}/${checklist.length}` },
-          { key: "status", label: "2. Scrutiny Status & Feedback", icon: ScanLine, badge: attentionCount > 0 ? `${attentionCount} Advisory` : "All Clear" },
+          { key: "status", label: "2. Scrutiny Status & Feedback", icon: ScanLine, badge: submittedApps[college.applicationId] ? "Submitted" : "All Clear" },
           { key: "records", label: "3. AICTE Master Record", icon: Building2, badge: "Verified" },
           { key: "receipt", label: "4. Statutory Receipt", icon: FileCheck, badge: college.applicationId.replace("APP-2026-", "APP-") },
         ].map((tab) => {

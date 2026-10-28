@@ -79,6 +79,8 @@ export interface DocumentRecord {
   extracted: ExtractedField[];
   findings: number;
   note?: string;
+  ocrText?: string;
+  storagePath?: string;
 }
 
 export interface Finding {

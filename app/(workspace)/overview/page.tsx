@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import {
   activityFeed,
-  applications,
   auditEntries,
   dashboardMetrics,
   reviewQueue,
@@ -40,7 +39,7 @@ const toneMap = {
 
 export default function OverviewPage() {
   const [tab, setTab] = useState<"all" | "high" | "source" | "review">("all");
-  const [apps, setApps] = useState<Application[]>(applications);
+  const [apps, setApps] = useState<Application[]>([]);
 
   useEffect(() => {
     async function loadApplications() {
@@ -162,7 +161,7 @@ export default function OverviewPage() {
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
         <section className="card overflow-hidden xl:col-span-8">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3.5 sm:px-5">
-            <SectionHeading title="Applications in focus" meta={`${visibleApplications.length} of ${applications.length}`} />
+            <SectionHeading title="Applications in focus" meta={`${visibleApplications.length} of ${apps.length}`} />
             <div className="flex items-center gap-1">
               {[
                 { key: "all", label: "All" },

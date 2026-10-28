@@ -22,10 +22,10 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { applications, reviewQueue } from "@/lib/mock-data";
 import { cn } from "@/lib/display";
 import { BrandMark, Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
+import type { Application } from "@/lib/types";
 
 type NavItem = {
   href: string;
@@ -44,8 +44,8 @@ const officerNavigation: NavSection[] = [
     label: "Regulatory Scrutiny",
     items: [
       { href: "/overview", label: "Desk Overview", icon: LayoutGrid },
-      { href: "/applications", label: "Applications", icon: FileStack, count: applications.length > 0 ? String(applications.length) : undefined },
-      { href: "/review", label: "Review Queue", icon: Inbox, count: reviewQueue.length > 0 ? String(reviewQueue.length) : undefined },
+      { href: "/applications", label: "Applications", icon: FileStack },
+      { href: "/review", label: "Review Queue", icon: Inbox },
     ],
   },
   {
@@ -366,27 +366,34 @@ function Sidebar({
 function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [apps, setApps] = useState<Application[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
+      fetch("/api/applications")
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d.applications)) setApps(d.applications);
+        })
+        .catch(() => {});
     } else {
       setQuery("");
     }
   }, [open]);
 
   const filteredApps = useMemo(() => {
-    if (!query.trim()) return applications.slice(0, 5);
+    if (!query.trim()) return apps.slice(0, 5);
     const q = query.toLowerCase();
-    return applications.filter(
+    return apps.filter(
       (a) =>
         a.id.toLowerCase().includes(q) ||
         a.institution.toLowerCase().includes(q) ||
         a.programme.toLowerCase().includes(q) ||
         a.state.toLowerCase().includes(q),
     );
-  }, [query]);
+  }, [apps, query]);
 
   if (!open) return null;
 

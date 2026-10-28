@@ -18,9 +18,10 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { applications, rules, ruleGroups } from "@/lib/mock-data";
+import { rules, ruleGroups } from "@/lib/mock-data";
 import { cn, severity } from "@/lib/display";
 import { PageHeader, SectionHeading } from "@/components/ui";
+import type { Application } from "@/lib/types";
 
 type EditorTab = "yaml" | "fields" | "history";
 
@@ -46,6 +47,16 @@ export default function RulesPage() {
   const [running, setRunning] = useState(false);
   const [lastRun, setLastRun] = useState<{ threshold: number; reclassified: number; time: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [apps, setApps] = useState<Application[]>([]);
+
+  useEffect(() => {
+    fetch("/api/applications")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.applications)) setApps(d.applications);
+      })
+      .catch(() => {});
+  }, []);
 
   const currentRule = rules.find((rule) => rule.id === selectedId) ?? rules[0];
 
@@ -108,7 +119,7 @@ export default function RulesPage() {
     setLastRun(null);
     const startTime = performance.now();
     try {
-      const targetApps = applications.length > 0 ? applications.map((a) => a.id) : ["APP-2026-8941", "APP-2026-9012"];
+      const targetApps = apps.length > 0 ? apps.map((a) => a.id) : ["APP-2026-8941", "APP-2026-9012"];
       let totalEvaluated = 0;
       let totalFlags = 0;
 
@@ -380,7 +391,7 @@ export default function RulesPage() {
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-[#faf8f2] px-4 py-3">
             <div className="flex items-center gap-1.5 text-[12px] text-muted">
               <ShieldCheck className="h-3.5 w-3.5 text-pine" />
-              {lastRun ? `Last run ${lastRun.time} · ${applications.length} applications` : "Draft not yet re-run"}
+              {lastRun ? `Last run ${lastRun.time} · ${apps.length} applications` : "Draft not yet re-run"}
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => setToast("Draft saved locally. Publish to make it available to the pipeline.")} className="btn btn-secondary h-9 text-[12.5px]"><Save className="h-3.5 w-3.5" /> Save draft</button>
@@ -396,10 +407,10 @@ export default function RulesPage() {
           <section className="card overflow-hidden">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <SectionHeading title="Impact preview" meta="live" />
-              <span className="flex items-center gap-1 text-[11px] text-muted"><span className="h-1.5 w-1.5 rounded-full bg-pine" /> {applications.length} apps</span>
+              <span className="flex items-center gap-1 text-[11px] text-muted"><span className="h-1.5 w-1.5 rounded-full bg-pine" /> {apps.length} apps</span>
             </div>
             <div className="grid grid-cols-2 border-b border-line">
-              <div className="border-r border-line px-4 py-3"><div className="eyebrow text-[11px]">Evaluated</div><div className="mono mt-1 text-[22px] font-medium">{applications.length}</div></div>
+              <div className="border-r border-line px-4 py-3"><div className="eyebrow text-[11px]">Evaluated</div><div className="mono mt-1 text-[22px] font-medium">{apps.length}</div></div>
               <div className="px-4 py-3"><div className="eyebrow text-[11px]">Findings</div><div className="mono mt-1 text-[22px] font-medium text-rust">{displayFailures}</div></div>
             </div>
             <div className="px-4 py-3">
@@ -412,10 +423,10 @@ export default function RulesPage() {
               </div>
               <div className="mt-3 space-y-2">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">Affected applications</div>
-                {applications.length === 0 ? (
+                {apps.length === 0 ? (
                   <div className="py-2 text-[12px] text-muted italic">No applications available for impact preview.</div>
                 ) : (
-                  applications.slice(0, 3).map((item) => (
+                  apps.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex items-center gap-2">
                       <span className="min-w-0 flex-1 truncate text-[12px] text-ink">{item.institution}</span>
                       <span className={cn("mono text-[11.5px]", item.risk === "high" ? "text-ochre" : "text-pine")}>{item.findings} findings</span>

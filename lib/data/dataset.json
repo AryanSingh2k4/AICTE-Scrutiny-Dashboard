@@ -39,6 +39,26 @@
       "risk": "high",
       "officer": "Dr. Ananya Menon",
       "lastAction": "4 regulatory findings detected · Human review required"
+    },
+    {
+      "id": "APP-2026-9045",
+      "institution": "Datta Meghe College of Engineering (DMCE)",
+      "shortName": "DMCE",
+      "city": "Navi Mumbai",
+      "state": "Maharashtra",
+      "programme": "Civil & Computer Engineering",
+      "intake": 420,
+      "trust": "Nagar Yuwak Shikshan Sanstha, Airoli (Reg. E-1456)",
+      "submittedAt": "2026-10-27T12:05:00.000Z",
+      "submittedLabel": "Today · 12:05 IST",
+      "documentsTotal": 5,
+      "documentsReceived": 5,
+      "findings": 0,
+      "highFindings": 0,
+      "status": "ready_for_decision",
+      "risk": "low",
+      "officer": "Dr. Ananya Menon",
+      "lastAction": "All 15 regulatory checks passed · Clean"
     }
   ],
   "documents": [

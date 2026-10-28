@@ -3,14 +3,57 @@ import { getServerSupabase } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const applicationId = searchParams.get("applicationId");
+
+    const supabase = getServerSupabase();
+    let query = supabase
+      .from("officer_decisions")
+      .select("*")
+      .order("recorded_at", { ascending: false });
+
+    if (applicationId) {
+      query = query.eq("application_id", applicationId);
+    }
+
+    const { data: decisions, error } = await query;
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ decisions: decisions || [] });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+function normalizeOutcome(raw: string): string {
+  const o = (raw || "").toLowerCase();
+  if (o.includes("clarif")) return "request_clarification";
+  if (o.includes("inspect")) return "refer_for_inspection";
+  if (o.includes("reject")) return "reject";
+  return "accept";
+}
+
+function normalizeRole(raw: string): string {
+  const r = (raw || "").toLowerCase();
+  if (r.includes("senior")) return "senior_officer";
+  return "scrutiny_officer";
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { applicationId, outcome, remarks, conditions, officerName, officerRole } = body;
+    const { applicationId, outcome: rawOutcome, remarks, conditions, officerName, officerRole } = body;
 
-    if (!applicationId || !outcome || !remarks) {
+    if (!applicationId || !rawOutcome || !remarks) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const outcome = normalizeOutcome(rawOutcome);
+    const validRole = normalizeRole(officerRole);
 
     const supabase = getServerSupabase();
 
@@ -21,7 +64,7 @@ export async function POST(request: Request) {
         application_id: applicationId,
         officer_id: "OFF-AICTE-091",
         officer_name: officerName || "Dr. Vikram Sharma",
-        officer_role: officerRole || "senior_officer",
+        officer_role: validRole,
         outcome,
         remarks,
         conditions: conditions || [],

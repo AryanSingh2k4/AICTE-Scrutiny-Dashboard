@@ -126,6 +126,14 @@ function Sidebar({
   const navigation = isInstitution ? institutionNavigation : officerNavigation;
   const user = useMemo(() => {
     if (isInstitution) {
+      if (college === "dattameghe") {
+        return {
+          label: "Principal, DMCE",
+          name: "Dr. Sudhirkumar D. Sawarkar",
+          initials: "DM",
+          college: "Datta Meghe College of Engg.",
+        };
+      }
       if (college === "ltce") {
         return {
           label: "Principal, LTCE",

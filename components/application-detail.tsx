@@ -45,7 +45,7 @@ import {
   severity,
   verificationStatus,
 } from "@/lib/display";
-import type { Application, ApplicationStatus, DocumentRecord, Finding, FindingSeverity, RiskLevel } from "@/lib/types";
+import type { Application, ApplicationStatus, DocumentRecord, DocumentStatus, Finding, FindingSeverity, RiskLevel } from "@/lib/types";
 import { ConfidenceMeter, PageHeader } from "@/components/ui";
 import { DocumentPreview } from "@/components/document-preview";
 import { DecisionDialog, type DecisionType } from "@/components/decision-dialog";
@@ -324,9 +324,12 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
     );
   }
 
+  const [customDocs, setCustomDocs] = useState<DocumentRecord[]>([]);
+
   const appDocs = useMemo(() => {
-    return documents.filter((doc) => doc.id.includes(application.id));
-  }, [application.id]);
+    const staticDocs = documents.filter((doc) => doc.id.includes(application.id));
+    return [...customDocs, ...staticDocs];
+  }, [application.id, customDocs]);
 
   const [appFindings, setAppFindings] = useState<Finding[]>(() => {
     return findings.filter((finding) => appDocs.some((d) => d.id === finding.documentId) || finding.documentId === application.id);
@@ -354,6 +357,74 @@ export function ApplicationDetail({ applicationId }: { applicationId: string }) 
     async function loadInitialValidation() {
       if (!application?.id) return;
       try {
+        // 1. Fetch dynamic uploaded documents & anomalies for this application from database
+        const docRes = await fetch(`/api/applications/${application.id}/documents`);
+        if (docRes.ok) {
+          const docData = await docRes.json();
+          if (docData.documents && docData.documents.length > 0) {
+            const mappedCustomDocs: DocumentRecord[] = docData.documents
+              .filter((dbDoc: any) => !documents.some((staticDoc) => staticDoc.id === dbDoc.id))
+              .map((dbDoc: any) => ({
+                id: dbDoc.id,
+                type: dbDoc.document_type || "Regulatory Evidence",
+                label: dbDoc.document_type || dbDoc.file_name,
+                fileName: dbDoc.file_name,
+                pages: dbDoc.page_count || 1,
+                status: "attention" as DocumentStatus,
+                issuer: "Uploaded Institution Dossier",
+                reference: dbDoc.sha256_hash?.slice(0, 16) || "N/A",
+                hash: dbDoc.sha256_hash || "",
+                uploadedAt: new Date(dbDoc.created_at || Date.now()).toLocaleDateString("en-IN"),
+                extracted: [],
+                findings: 1,
+                note: "Uploaded via College Portal & Analyzed by Pipeline",
+              }));
+
+            if (mappedCustomDocs.length > 0) {
+              setCustomDocs(mappedCustomDocs);
+            }
+          }
+
+          if (docData.anomalies && docData.anomalies.length > 0) {
+            const mappedCustomFindings: Finding[] = docData.anomalies.map((anom: any) => ({
+              id: anom.id || `anom-${Date.now()}-${Math.random()}`,
+              title:
+                anom.anomaly_type === "cross_institution_plagiarism"
+                  ? "Cross-Institution Document Plagiarism / Splicing Detected"
+                  : anom.anomaly_type === "duplicate"
+                  ? "Cross-Institution Duplicate SHA-256 Collision"
+                  : anom.anomaly_type === "image_tamper_ela"
+                  ? "OpenCV Error Level Analysis (ELA) Digital Tampering"
+                  : anom.reason?.slice(0, 48) || "Document Anomaly",
+              severity: (anom.severity as any) || "high",
+              ruleId: "EOA-PLAG-01",
+              ruleVersion: "2.0",
+              ruleType: "forensic_integrity",
+              documentId: anom.document_id,
+              documentLabel: "Uploaded Evidence",
+              page: anom.page_number || 1,
+              confidence: anom.confidence || 0.95,
+              description: anom.reason || "Integrity anomaly detected in document byte-stream.",
+              evidence: [
+                anom.reason || "Evidence anomaly flagged",
+                anom.evidence ? JSON.stringify(anom.evidence) : "Forensic analysis evidence",
+              ],
+              source: "ScrutiniX Forensic Pipeline",
+              timestamp: anom.flagged_at || new Date().toISOString(),
+              recommendation: "Depute Expert Visiting Committee (EVC) for on-site physical verification.",
+              bbox: anom.bbox,
+              status: "open",
+            }));
+
+            setAppFindings((prev) => {
+              const existingIds = new Set(prev.map((f) => f.id));
+              const newUnique = mappedCustomFindings.filter((f) => !existingIds.has(f.id));
+              return [...newUnique, ...prev];
+            });
+          }
+        }
+
+        // 2. Fetch AI reasoning & validation
         const res = await fetch(`/api/validate/${application.id}`, { method: "POST" });
         const data = await res.json();
         if (data.ai_analysis) {

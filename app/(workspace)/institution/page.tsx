@@ -262,6 +262,99 @@ const collegesData: Record<string, CollegeProfile> = {
       },
     ],
   },
+  dattameghe: {
+    id: "dattameghe",
+    name: "Datta Meghe College of Engineering (DMCE)",
+    shortName: "DMCE",
+    pid: "1-4589211021",
+    applicationId: "APP-2026-9045",
+    address: "Plot No. 98, Sector 3, Airoli, Navi Mumbai 400708, Maharashtra",
+    principal: "Dr. Sudhirkumar D. Sawarkar",
+    sponsoringTrust: "Nagar Yuwak Shikshan Sanstha, Airoli (Reg. E-1456)",
+    category: "Self-Financing Technical Institution",
+    university: "University of Mumbai",
+    intake: 420,
+    faculty: 28,
+    landAcres: 3.50,
+    builtUpSqm: 11450,
+    terPaymentRef: "TER-2026-99512",
+    region: "Western Regional Office · Mumbai",
+    receiptDate: "27 October 2026 · 16:15:40 IST",
+    programmes: [
+      { code: "1-4589211021-CE", course: "Civil Engineering", intake: 120, accreditation: "NBA Accredited Tier-II" },
+      { code: "1-4589211021-CS", course: "Computer Engineering", intake: 120, accreditation: "NBA Accredited Tier-II" },
+      { code: "1-4589211021-ME", course: "Mechanical Engineering", intake: 60, accreditation: "NBA Accredited Tier-II" },
+      { code: "1-4589211021-IT", course: "Information Technology", intake: 60, accreditation: "NBA Accredited Tier-II" },
+      { code: "1-4589211021-AI", course: "Artificial Intelligence & Data Science", intake: 60, accreditation: "Approved New Programme" },
+    ],
+    initialDocs: [
+      {
+        id: "doc-affidavit",
+        type: "AICTE Mandatory Affidavit 1",
+        category: "Statutory Undertaking",
+        required: true,
+        ruleRef: "APH §3.1 · Form 1",
+        status: "uploaded",
+        fileName: "affidavit_undertaking_dmce_2026.pdf",
+        fileSize: "1.28 MB",
+        hash: "c6e8d3b298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852d103",
+        uploadDate: "27 Oct 2026, 12:05 IST",
+        notes: "₹100 non-judicial stamp paper with Notary Registration No. 63102 (Thane).",
+      },
+      {
+        id: "doc-land",
+        type: "Land & Ownership Registered Deed",
+        category: "Campus Infrastructure",
+        required: true,
+        ruleRef: "APH §4.1 · Norm 2.50 Acres",
+        status: "uploaded",
+        fileName: "land_registered_title_dmce_campus.pdf",
+        fileSize: "4.95 MB",
+        hash: "8f425457759f7c07ef90eeb012d6287c21b7e94072ee4d2bd99c60c3ed430aa2",
+        uploadDate: "27 Oct 2026, 12:12 IST",
+        notes: "3.50 Acres registered unencumbered institutional land plot from CIDCO at Sector 3, Airoli.",
+      },
+      {
+        id: "doc-fire",
+        type: "Fire & Life Safety NOC",
+        category: "Safety Clearance",
+        required: true,
+        ruleRef: "APH §4.2(d) · Expiry Horizon",
+        status: "uploaded",
+        fileName: "fire_safety_noc_nmmc_dmce.pdf",
+        fileSize: "2.18 MB",
+        hash: "a187c3840045fdf20e7b915eff6b4f6858bea5fb033f2e50d02f63eec8986b21",
+        uploadDate: "27 Oct 2026, 12:18 IST",
+        notes: "NMMC Chief Fire Officer compliance certificate valid through 30-Nov-2027.",
+      },
+      {
+        id: "doc-building",
+        type: "Building Safety & Completion Plan",
+        category: "Physical Norms",
+        required: true,
+        ruleRef: "APH §4.3 · Norm 7,500 sq.m",
+        status: "uploaded",
+        fileName: "building_occupancy_dmce_airoli.pdf",
+        fileSize: "3.90 MB",
+        hash: "3d946f4b376f27fff14f08829c7b6e14120d18e9c7d62001eb777ffee24dd99",
+        uploadDate: "27 Oct 2026, 12:25 IST",
+        notes: "CIDCO & NMMC approved occupancy certificate: 11,450 sq.m instructional area.",
+      },
+      {
+        id: "doc-affiliation",
+        type: "University Affiliation & NBA Letter",
+        category: "Academic Accreditation",
+        required: true,
+        ruleRef: "APH §2.4 · Tier-1 Accreditation",
+        status: "uploaded",
+        fileName: "university_mumbai_affiliation_dmce_2026.pdf",
+        fileSize: "2.15 MB",
+        hash: "5a28519673cedc9c71df16d2ef02febe27c83341078ef02f751c8e5830c50fff",
+        uploadDate: "27 Oct 2026, 12:30 IST",
+        notes: "Affiliation continuation order from University of Mumbai for AY 2026-27.",
+      },
+    ],
+  },
 };
 
 function InstitutionWorkspaceContent() {
@@ -285,6 +378,10 @@ function InstitutionWorkspaceContent() {
     message: string;
   } | null>(null);
 
+  // Live Scrutiny Officer Decisions & Notices
+  const [officerDecisions, setOfficerDecisions] = useState<any[]>([]);
+  const [loadingDecisions, setLoadingDecisions] = useState(false);
+
   // Sync active college from URL param or localStorage
   useEffect(() => {
     const paramCollege = searchParams?.get("college");
@@ -304,6 +401,26 @@ function InstitutionWorkspaceContent() {
   }, [searchParams]);
 
   const college = collegesData[collegeId] || collegesData.sardarpatel;
+
+  // Fetch live officer decisions and notices whenever college changes
+  useEffect(() => {
+    async function loadDecisions() {
+      if (!college?.applicationId) return;
+      try {
+        setLoadingDecisions(true);
+        const res = await fetch(`/api/decisions?applicationId=${college.applicationId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setOfficerDecisions(data.decisions || []);
+        }
+      } catch (e) {
+        console.error("Failed to fetch officer decisions:", e);
+      } finally {
+        setLoadingDecisions(false);
+      }
+    }
+    loadDecisions();
+  }, [college?.applicationId, collegeId]);
 
   // Preview modal state
   const [previewDoc, setPreviewDoc] = useState<ComplianceDoc | null>(null);
@@ -346,9 +463,8 @@ function InstitutionWorkspaceContent() {
       };
     }
 
-    const otherCollegeKey = collegeId === "sardarpatel" ? "ltce" : "sardarpatel";
-    const otherCollege = collegesData[otherCollegeKey];
-    if (otherCollege) {
+    for (const [key, otherCollege] of Object.entries(collegesData)) {
+      if (key === collegeId) continue;
       const match = otherCollege.initialDocs.find(
         (d) => d.hash.toLowerCase() === computedHash.toLowerCase()
       );
@@ -432,91 +548,61 @@ function InstitutionWorkspaceContent() {
     setToast("Duplicate document analysis complete. High-priority collision banner raised.");
   };
 
-  // Handle actual file upload from user's filesystem
+  // Handle actual file upload from user's filesystem and process via backend forensic engine
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
     setIsProcessing(true);
-    setProcessingStage("Computing SHA-256 cryptographic digest…");
+    setProcessingStage("Uploading document to ScrutiniX Forensic Pipeline…");
 
     try {
-      const realHash = await computeSHA256(file);
-      const dupCheck = await checkDuplicateCrossInstitution(realHash);
+      const targetDoc = checklist.find((d) => d.id === selectedCategory);
+      const docType = targetDoc?.type || "Regulatory Evidence";
 
-      if (dupCheck.isDuplicate) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("applicationId", college.applicationId);
+      formData.append("collegeId", collegeId);
+      formData.append("documentType", docType);
+
+      setProcessingStage("Running PyMuPDF OCR & OpenCV Error Level Analysis…");
+
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload failed with status ${res.status}`);
+      }
+
+      setProcessingStage("Scanning cross-institution similarity & Google Gemma 4 decision support…");
+      const result = await res.json();
+
+      const realHash = result.sha256Hash || (await computeSHA256(file));
+
+      // 1. Check Exact Hash Duplicate
+      if (result.isExactDuplicate) {
         setDuplicateBanner({
           show: true,
           hash: realHash,
-          matchedInstitution: dupCheck.matchedInstitution || "Sardar Patel Institute of Technology",
-          matchedDoc: dupCheck.matchedDoc || "Land Lease Deed",
-          message:
-            dupCheck.message ||
-            "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+          matchedInstitution: result.exactCollidingInst || "Sardar Patel Institute of Technology",
+          matchedDoc: "Land Lease Deed",
+          message: `CRITICAL ALERT: Exact SHA-256 byte-stream duplicate match with document submitted by ${result.exactCollidingInst || "Sardar Patel Institute of Technology"}.`,
+        });
+      } 
+      // 2. Check Edited Copy / Spliced Document Plagiarism
+      else if (result.isEditedCopy) {
+        setDuplicateBanner({
+          show: true,
+          hash: realHash,
+          matchedInstitution: result.plagiarizedInstitution || "Sardar Patel Institute of Technology",
+          matchedDoc: "Document",
+          message: `CRITICAL INTEGRITY VIOLATION: Uploaded document shares ${Math.round(result.similarityScore * 100)}% identical text and phrases with document submitted by ${result.plagiarizedInstitution || "Sardar Patel Institute of Technology"}, but cryptographic hashes differ. Localized alterations/splicing detected!`,
         });
       } else {
         setDuplicateBanner(null);
       }
-
-      await new Promise((r) => setTimeout(r, 400));
-
-      setProcessingStage("Uploading encrypted evidence to Supabase Storage…");
-      const supabase = createClient();
-      const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const storagePath = `${college.applicationId}/${selectedCategory}-${Date.now()}-${cleanFileName}`;
-
-      const { data: storageUpload, error: uploadErr } = await supabase.storage
-        .from("documents")
-        .upload(storagePath, file, { upsert: true });
-
-      let finalPreviewUrl = URL.createObjectURL(file);
-      if (!uploadErr) {
-        const { data: pubUrl } = supabase.storage.from("documents").getPublicUrl(storagePath);
-        if (pubUrl?.publicUrl) finalPreviewUrl = pubUrl.publicUrl;
-      } else {
-        console.warn("Storage upload notice (falling back to object URL):", uploadErr.message);
-      }
-
-      setProcessingStage("Sealing document record in Supabase database…");
-      const targetDoc = checklist.find((d) => d.id === selectedCategory);
-      const docType = targetDoc?.type || "Regulatory Evidence";
-
-      // Persist document record into Supabase documents table
-      const { error: dbErr } = await supabase.from("documents").upsert({
-        id: `DOC-2026-${selectedCategory.toUpperCase()}-${college.id.toUpperCase()}`,
-        application_id: college.applicationId,
-        document_type: docType,
-        file_name: file.name,
-        file_size: file.size,
-        storage_path: storagePath,
-        sha256_hash: realHash,
-        created_at: new Date().toISOString(),
-      });
-
-      if (dbErr) {
-        console.warn("Database record notice:", dbErr.message);
-      }
-
-      // Record in cryptographic audit trail
-      try {
-        await supabase.from("audit_log").insert({
-          application_id: college.applicationId,
-          action: "DOCUMENT_UPLOADED",
-          actor_role: "institution",
-          actor_name: college.principal,
-          details: {
-            document_type: docType,
-            file_name: file.name,
-            sha256_hash: realHash,
-            file_size_bytes: file.size,
-            storage_path: storagePath,
-          },
-        });
-      } catch (auditErr) {
-        console.warn("Audit logging notice:", auditErr);
-      }
-
-      setProcessingStage("Running AICTE 2026–27 regulatory rule pre-check…");
-      await new Promise((r) => setTimeout(r, 450));
 
       const sizeStr = (file.size / (1024 * 1024)).toFixed(2) + " MB";
       const nowStr =
@@ -527,6 +613,8 @@ function InstitutionWorkspaceContent() {
           hour: "2-digit",
           minute: "2-digit",
         }) + " IST";
+
+      const previewUrl = URL.createObjectURL(file);
 
       // Update the selected document in checklist
       setChecklist((prev) =>
@@ -539,8 +627,12 @@ function InstitutionWorkspaceContent() {
               fileSize: sizeStr,
               hash: realHash,
               uploadDate: nowStr,
-              notes: `Stored in Supabase documents bucket (${storagePath}). SHA-256 cryptographically sealed.`,
-              previewUrl: finalPreviewUrl,
+              notes: result.isEditedCopy
+                ? `Altered clone detected (${Math.round(result.similarityScore * 100)}% similarity to ${result.plagiarizedInstitution}).`
+                : result.isTampered
+                ? `OpenCV ELA Tamper flagged: ${result.tamperReason}`
+                : `Sealed in compliance database. SHA-256: ${realHash.slice(0, 16)}...`,
+              previewUrl,
               isCustom: true,
             };
           }
@@ -549,11 +641,17 @@ function InstitutionWorkspaceContent() {
       );
 
       setIsProcessing(false);
-      setToast(`File "${file.name}" uploaded to Supabase Storage and sealed into compliance database.`);
-    } catch (err) {
+      if (result.isEditedCopy) {
+        setToast(`CRITICAL: Edited copy of ${result.plagiarizedInstitution} document flagged!`);
+      } else if (result.isTampered) {
+        setToast(`Forensic Alert: Digital alteration detected by OpenCV ELA.`);
+      } else {
+        setToast(`File "${file.name}" uploaded and sealed into compliance database.`);
+      }
+    } catch (err: any) {
       console.error("Upload processing error:", err);
       setIsProcessing(false);
-      setToast("Failed to process document. Please try a valid PDF or image file.");
+      setToast("Failed to process document through forensic pipeline.");
     }
   };
 
@@ -589,24 +687,91 @@ function InstitutionWorkspaceContent() {
           </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setTab("receipt")}
-            className="btn btn-secondary h-9 text-[12px] flex items-center gap-1.5"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            <span>Official Receipt</span>
-          </button>
-          <button
-            onClick={() => {
-              if (fileInputRef.current) fileInputRef.current.click();
-            }}
-            className="btn btn-primary h-9 text-[12px] flex items-center gap-1.5"
-          >
-            <Upload className="h-3.5 w-3.5" />
-            <span>Upload Document</span>
-          </button>
+        {/* Quick Actions & College Switcher */}
+        <div className="flex flex-col sm:items-end gap-2.5">
+          {/* 1-Click Institution Switcher */}
+          <div className="flex items-center gap-1.5 bg-paper p-1 rounded-lg border border-line">
+            <span className="text-[11px] font-semibold text-muted px-2 uppercase tracking-wider">Institution:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCollegeId("sardarpatel");
+                setChecklist(collegesData.sardarpatel.initialDocs);
+                router.push(`/institution?tab=${currentTab}&college=sardarpatel`);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem("scrutinix-college", "sardarpatel");
+                }
+              }}
+              className={cn(
+                "px-3 py-1.5 text-[11.5px] font-semibold rounded-md transition-all flex items-center gap-1.5",
+                collegeId === "sardarpatel"
+                  ? "bg-pine text-white shadow-sm"
+                  : "text-muted hover:text-ink hover:bg-surface"
+              )}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              <span>Sardar Patel (SPIT)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCollegeId("ltce");
+                setChecklist(collegesData.ltce.initialDocs);
+                router.push(`/institution?tab=${currentTab}&college=ltce`);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem("scrutinix-college", "ltce");
+                }
+              }}
+              className={cn(
+                "px-3 py-1.5 text-[11.5px] font-semibold rounded-md transition-all flex items-center gap-1.5",
+                collegeId === "ltce"
+                  ? "bg-pine text-white shadow-sm"
+                  : "text-muted hover:text-ink hover:bg-surface"
+              )}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              <span>Lokmanya Tilak (LTCE)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCollegeId("dattameghe");
+                setChecklist(collegesData.dattameghe.initialDocs);
+                router.push(`/institution?tab=${currentTab}&college=dattameghe`);
+                if (typeof window !== "undefined") {
+                  window.localStorage.setItem("scrutinix-college", "dattameghe");
+                }
+              }}
+              className={cn(
+                "px-3 py-1.5 text-[11.5px] font-semibold rounded-md transition-all flex items-center gap-1.5",
+                collegeId === "dattameghe"
+                  ? "bg-pine text-white shadow-sm"
+                  : "text-muted hover:text-ink hover:bg-surface"
+              )}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              <span>Datta Meghe (DMCE)</span>
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setTab("receipt")}
+              className="btn btn-secondary h-9 text-[12px] flex items-center gap-1.5"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span>Official Receipt</span>
+            </button>
+            <button
+              onClick={() => {
+                if (fileInputRef.current) fileInputRef.current.click();
+              }}
+              className="btn btn-primary h-9 text-[12px] flex items-center gap-1.5"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span>Upload Document</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -650,7 +815,7 @@ function InstitutionWorkspaceContent() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.png,.jpg,.jpeg"
+        accept=".pdf,.png,.jpg,.jpeg,.txt,text/plain,application/pdf,image/*"
         className="hidden"
         onChange={(e) => {
           if (e.target.files && e.target.files[0]) {
@@ -663,7 +828,44 @@ function InstitutionWorkspaceContent() {
       {currentTab === "submission" && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-5">
-            {/* Immediate High-Visibility Banner for Duplicate Document */}
+            {/* Live Officer Notice Alert in Tab 1 */}
+            {officerDecisions.length > 0 && officerDecisions[0].outcome !== "accept" && (
+              <div className="relative rounded-xl border-2 border-ochre bg-[#fefcf3] p-4 shadow-sm animate-fade-in">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ochre text-white shadow-sm">
+                    <AlertTriangle className="h-4.5 w-4.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="chip border-ochre/30 bg-ochre text-white font-bold text-[10px] uppercase">
+                        AICTE Committee Notice Received
+                      </span>
+                      <span className="mono text-[11px] text-muted">
+                        From: {officerDecisions[0].officer_name} ({String(officerDecisions[0].officer_role || "").replace("_", " ")})
+                      </span>
+                    </div>
+                    <h4 className="mt-1 text-[14px] font-bold text-ink">
+                      {officerDecisions[0].outcome === "reject"
+                        ? "Statutory Rejection / Show Cause Notice Issued"
+                        : officerDecisions[0].outcome === "clarification"
+                        ? "Formal Clarification Requested by Scrutiny Officer"
+                        : "Referral for Physical Inspection Scheduled"}
+                    </h4>
+                    <p className="mt-1 text-[12px] text-muted leading-relaxed">
+                      {officerDecisions[0].remarks}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setTab("status")}
+                    className="btn btn-secondary h-8 px-3 text-[11.5px] font-semibold text-ochre border-ochre/30 hover:bg-ochre-soft shrink-0"
+                  >
+                    View Official Notice
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Immediate High-Visibility Banner for Duplicate / Plagiarized Document */}
             {duplicateBanner?.show && (
               <div className="relative rounded-xl border-2 border-rust bg-[#fdf5f4] p-5 shadow-lift animate-fade-in">
                 <div className="flex items-start gap-3.5">
@@ -676,19 +878,19 @@ function InstitutionWorkspaceContent() {
                         Cross-Institutional Collision Flag
                       </span>
                       <span className="mono text-[11px] text-rust font-semibold">
-                        RULE DUP-HASH-01 · CRITICAL ADVISORY
+                        RULE EOA-PLAG-01 · CRITICAL ADVISORY
                       </span>
                     </div>
                     <h3 className="mt-1.5 text-[16px] font-bold text-rust leading-snug">
-                      Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.
+                      {duplicateBanner.message}
                     </h3>
                     <p className="mt-1.5 text-[12.5px] text-[#7d3223] leading-relaxed">
-                      The computed SHA-256 digest <span className="mono font-bold bg-white px-1.5 py-0.5 rounded border border-rust/20">{duplicateBanner.hash}</span> is an exact bit-for-bit duplicate of the Registered Land Title & Lease Deed submitted by Sardar Patel Institute of Technology (PID: 1-3686579303). Under AICTE APH §4.1, campus infrastructure deeds cannot be shared across multiple institutions.
+                      The computed SHA-256 digest is <span className="mono font-bold bg-white px-1.5 py-0.5 rounded border border-rust/20">{duplicateBanner.hash}</span>. Under AICTE Approval Process Handbook (APH 2026–27 §4.1), educational campus documentation and statutory deeds must be exclusive, genuine, and unencumbered. Local alterations or spliced duplicates cannot be shared across multiple institutions.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11.5px] border-t border-rust/20 pt-2.5 text-[#8f3e2e]">
-                      <span><strong>Originating College:</strong> Sardar Patel Institute of Technology (PID: 1-3686579303)</span>
-                      <span><strong>Document:</strong> Land Lease Deed (Campus Infrastructure)</span>
-                      <span><strong>AICTE Scrutiny Stage:</strong> Escalated to Regional Scrutiny Committee</span>
+                      <span><strong>Originating College:</strong> {duplicateBanner.matchedInstitution}</span>
+                      <span><strong>Reference Doc:</strong> {duplicateBanner.matchedDoc}</span>
+                      <span><strong>AICTE Scrutiny Stage:</strong> Escalated to Regional Scrutiny Officer Dossier</span>
                     </div>
                   </div>
                   <button
@@ -780,7 +982,7 @@ function InstitutionWorkspaceContent() {
                       MAX 25 MB
                     </span>
                     <span className="mono rounded border border-line bg-paper px-2 py-0.5 text-[10.5px] text-muted">
-                      PDF, JPG, PNG
+                      PDF, JPG, PNG, TXT
                     </span>
                     <span className="mono rounded border border-pine/30 bg-pine-soft px-2 py-0.5 text-[10.5px] text-pine font-semibold">
                       BROWSER SHA-256 SEAL
@@ -1107,6 +1309,120 @@ function InstitutionWorkspaceContent() {
             </div>
           </section>
 
+          {/* Live Official AICTE Committee Notices & Orders */}
+          <section className="card p-5 overflow-hidden border-2 border-line">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3.5 mb-4">
+              <div>
+                <SectionHeading
+                  title="Official AICTE Scrutiny Committee Statutory Notices & Orders"
+                  meta={`${officerDecisions.length} Official Entry(s)`}
+                />
+                <p className="mt-0.5 text-[12px] text-muted">
+                  Formal regulatory decisions, show-cause notices, clarification orders, and EoA approvals issued by AICTE Scrutiny Officers.
+                </p>
+              </div>
+              <span className="mono text-[11px] text-muted">
+                Application ID: {college.applicationId}
+              </span>
+            </div>
+
+            {loadingDecisions ? (
+              <div className="py-8 text-center text-[12px] text-muted">
+                <RotateCw className="h-4 w-4 animate-spin inline-block mr-2" />
+                Fetching latest statutory orders from central registry…
+              </div>
+            ) : officerDecisions.length === 0 ? (
+              <div className="rounded-lg border border-line bg-paper/50 p-4 text-center">
+                <ShieldCheck className="h-6 w-6 text-pine mx-auto mb-1.5" />
+                <div className="text-[13px] font-semibold text-ink">No Adverse Statutory Notices Issued</div>
+                <p className="mt-0.5 text-[11.5px] text-muted max-w-[500px] mx-auto">
+                  The application is currently progressing through normal regulatory scrutiny. No formal show-cause or adverse orders have been recorded against {college.name}.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {officerDecisions.map((dec: any) => {
+                  const isReject = dec.outcome === "reject";
+                  const isClarify = dec.outcome === "clarification";
+                  const isInspect = dec.outcome === "inspection";
+                  const isAccept = dec.outcome === "accept";
+
+                  return (
+                    <div
+                      key={dec.id}
+                      className={cn(
+                        "rounded-xl border p-4 transition-all shadow-sm",
+                        isReject
+                          ? "border-rust/40 bg-rust-soft/30"
+                          : isClarify
+                          ? "border-ochre/40 bg-ochre-soft/30"
+                          : isInspect
+                          ? "border-slate-400 bg-[#f4f7f9]"
+                          : "border-pine/30 bg-pine-soft/20"
+                      )}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-line/60 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "flex h-6 w-6 items-center justify-center rounded-full text-white text-[11px] font-bold",
+                              isReject
+                                ? "bg-rust"
+                                : isClarify
+                                ? "bg-ochre"
+                                : isInspect
+                                ? "bg-slate-600"
+                                : "bg-pine"
+                            )}
+                          >
+                            {isReject ? "!" : isClarify ? "?" : isInspect ? "🔍" : "✓"}
+                          </span>
+                          <span className="mono text-[12px] font-bold text-ink uppercase tracking-wide">
+                            {isReject
+                              ? "Statutory Rejection / Show Cause Order"
+                              : isClarify
+                              ? "Formal Statutory Clarification Notice"
+                              : isInspect
+                              ? "Expert Visiting Committee (EVC) Inspection Order"
+                              : "Extension of Approval (EoA) Statutory Order"}
+                          </span>
+                        </div>
+                        <span className="mono text-[11px] text-muted">
+                          Recorded: {new Date(dec.recorded_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST
+                        </span>
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="text-[13px] font-semibold text-ink">
+                          Issuing Authority: <span className="font-normal">{dec.officer_name} ({String(dec.officer_role || "").replace("_", " ")})</span>
+                        </div>
+                        <div className="mt-2 rounded-lg border border-line bg-surface p-3 text-[12.5px] leading-relaxed text-ink/90">
+                          <strong>Official Officer Remarks:</strong> {dec.remarks}
+                        </div>
+
+                        {dec.conditions && dec.conditions.length > 0 && (
+                          <div className="mt-2.5 space-y-1">
+                            <span className="text-[11px] font-semibold text-muted uppercase">Statutory Conditions / Action Required:</span>
+                            <ul className="list-disc pl-5 text-[11.5px] text-muted space-y-0.5">
+                              {dec.conditions.map((cond: string, idx: number) => (
+                                <li key={idx}>{cond}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex items-center justify-between text-[10.5px] text-muted border-t border-line/40 pt-2">
+                          <span className="mono">Audit Reference: OFF-DEC-{dec.id.slice(0, 8).toUpperCase()}</span>
+                          <span className="mono text-pine font-semibold">Cryptographically Sealed in Ledger</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           {/* Active Advisory Findings */}
           <section className="card p-5">
             <div className="flex items-center justify-between border-b border-line pb-3.5 mb-4">
@@ -1124,12 +1440,12 @@ function InstitutionWorkspaceContent() {
                     : "border-ochre/30 bg-ochre-soft text-ochre"
                 )}
               >
-                {college.id === "ltce" ? "All Pre-Checks Clear" : "1 Advisory Discrepancy"}
+                {college.id === "sardarpatel" ? "1 Advisory Discrepancy" : "All Pre-Checks Clear"}
               </span>
             </div>
 
             <div className="space-y-4">
-              {/* Finding 1: Fire NOC Horizon (for Sardar Patel) or Clear (for LTCE) */}
+              {/* Finding 1: Fire NOC Horizon (for Sardar Patel) or Clear (for LTCE & DMCE) */}
               {college.id === "sardarpatel" ? (
                 <div className="rounded-xl border border-ochre/30 bg-ochre-soft/20 p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-ochre/20 pb-3">

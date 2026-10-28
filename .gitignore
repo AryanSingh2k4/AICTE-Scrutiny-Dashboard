@@ -28,6 +28,17 @@ yarn-error.log*
 .env*.local
 .env
 
+# uploads
+/uploads/*
+!/uploads/.gitkeep
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
 # vercel
 .vercel
 

@@ -1,0 +1,23 @@
+services:
+  scrutinix-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scrutinix-forensic-engine
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 1G

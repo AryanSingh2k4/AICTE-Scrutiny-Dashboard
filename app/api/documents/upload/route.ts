@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -49,15 +50,19 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(arrayBuffer);
     const sha256Hash = crypto.createHash("sha256").update(buffer).digest("hex");
 
-    // 2. Ensure uploads directory exists and write file to local disk
-    const uploadsDir = path.resolve(process.cwd(), "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
+    // 2. Write temp file to os.tmpdir() (safe for both serverless and local)
+    const uploadsDir = path.join(os.tmpdir(), "uploads");
+    let tempFilePath = "";
     const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const tempFilePath = path.join(uploadsDir, `${Date.now()}_${cleanFileName}`);
-    fs.writeFileSync(tempFilePath, buffer);
+    try {
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      tempFilePath = path.join(uploadsDir, `${Date.now()}_${cleanFileName}`);
+      fs.writeFileSync(tempFilePath, buffer);
+    } catch (e: any) {
+      console.warn("Notice writing temp file to disk:", e.message);
+    }
 
     // 3. Upload to Supabase Storage
     const storagePath = `${applicationId}/${Date.now()}-${cleanFileName}`;

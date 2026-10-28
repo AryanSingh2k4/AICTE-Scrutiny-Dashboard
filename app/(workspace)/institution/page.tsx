@@ -109,12 +109,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Statutory Undertaking",
         required: true,
         ruleRef: "APH §3.1 · Form 1",
-        status: "uploaded",
-        fileName: "affidavit_undertaking_spit_2026.pdf",
-        fileSize: "1.24 MB",
-        hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        uploadDate: "27 Oct 2026, 09:14 IST",
-        notes: "₹100 non-judicial stamp paper with Notary Registration No. 44812.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "₹100 non-judicial stamp paper with valid notarization required.",
       },
       {
         id: "doc-land",
@@ -122,12 +122,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Campus Infrastructure",
         required: true,
         ruleRef: "APH §4.1 · Norm 2.50 Acres",
-        status: "uploaded",
-        fileName: "land_lease_deed_bhavans_campus.pdf",
-        fileSize: "4.82 MB",
-        hash: "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc",
-        uploadDate: "27 Oct 2026, 09:20 IST",
-        notes: "3.25 Acres unencumbered registered land title at Andheri (West), Mumbai.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "Unencumbered registered land title or perpetual lease deed required.",
       },
       {
         id: "doc-fire",
@@ -135,12 +135,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Safety Clearance",
         required: true,
         ruleRef: "APH §4.2(d) · Expiry Horizon",
-        status: "attention",
-        fileName: "fire_safety_noc_mumbai_cfo.pdf",
-        fileSize: "2.10 MB",
-        hash: "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b",
-        uploadDate: "27 Oct 2026, 09:28 IST",
-        notes: "Advisory note: Expiry on 15-Mar-2027 precedes AY end (30-Jun-2027). Undertaking accepted.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "Municipal Fire Brigade / CFO certificate required.",
       },
       {
         id: "doc-building",
@@ -148,12 +148,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Physical Norms",
         required: true,
         ruleRef: "APH §4.3 · Norm 7,500 sq.m",
-        status: "uploaded",
-        fileName: "building_occupancy_pwd_certified.pdf",
-        fileSize: "3.45 MB",
-        hash: "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
-        uploadDate: "27 Oct 2026, 09:35 IST",
-        notes: "PWD Executive Engineer certified carpet area: 8,420 sq.m (Norm: 7,500 sq.m).",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "PWD / Municipal Corporation approved occupancy plan required.",
       },
       {
         id: "doc-affiliation",
@@ -161,12 +161,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Academic Accreditation",
         required: true,
         ruleRef: "APH §2.4 · Tier-1 Accreditation",
-        status: "uploaded",
-        fileName: "university_mumbai_affiliation_2026.pdf",
-        fileSize: "1.89 MB",
-        hash: "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce",
-        uploadDate: "27 Oct 2026, 09:42 IST",
-        notes: "Permanent affiliation from University of Mumbai with valid NBA tier-1 status.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "University affiliation certificate for AY 2026-27 required.",
       },
     ],
   },
@@ -201,11 +201,11 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Statutory Undertaking",
         required: true,
         ruleRef: "APH §3.1 · Form 1",
-        status: "uploaded",
-        fileName: "affidavit_undertaking_ltce_2026.pdf",
-        fileSize: "1.32 MB",
-        hash: "b5d7c2a198fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852c912",
-        uploadDate: "27 Oct 2026, 11:10 IST",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
         notes: "₹100 non-judicial stamp paper with Notary Registration No. 51204 (Thane).",
       },
       {
@@ -214,11 +214,11 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Campus Infrastructure",
         required: true,
         ruleRef: "APH §4.1 · Norm 2.50 Acres",
-        status: "uploaded",
-        fileName: "land_registered_title_ltce_campus.pdf",
-        fileSize: "5.10 MB",
-        hash: "7e314346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc329ff1",
-        uploadDate: "27 Oct 2026, 11:15 IST",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
         notes: "3.75 Acres unencumbered registered lease deed from CIDCO at Koparkhairane, Navi Mumbai.",
       },
       {
@@ -227,12 +227,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Safety Clearance",
         required: true,
         ruleRef: "APH §4.2(d) · Expiry Horizon",
-        status: "uploaded",
-        fileName: "fire_safety_noc_nmmc_cfo.pdf",
-        fileSize: "2.35 MB",
-        hash: "9a76b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875a10",
-        uploadDate: "27 Oct 2026, 11:22 IST",
-        notes: "NMMC Chief Fire Officer compliance certificate valid through 31-Aug-2027.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "NMMC Chief Fire Officer compliance certificate required.",
       },
       {
         id: "doc-building",
@@ -240,12 +240,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Physical Norms",
         required: true,
         ruleRef: "APH §4.3 · Norm 7,500 sq.m",
-        status: "uploaded",
-        fileName: "building_occupancy_cidco_certified.pdf",
-        fileSize: "4.12 MB",
-        hash: "2c835e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13cc88",
-        uploadDate: "27 Oct 2026, 11:30 IST",
-        notes: "CIDCO & NMMC certified instructional carpet area: 10,250 sq.m (Norm: 7,500 sq.m).",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "CIDCO & NMMC certified instructional carpet area plan required.",
       },
       {
         id: "doc-affiliation",
@@ -253,12 +253,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Academic Accreditation",
         required: true,
         ruleRef: "APH §2.4 · Tier-1 Accreditation",
-        status: "uploaded",
-        fileName: "university_mumbai_affiliation_ltce_2026.pdf",
-        fileSize: "2.05 MB",
-        hash: "3f17408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49eee",
-        uploadDate: "27 Oct 2026, 11:35 IST",
-        notes: "Affiliation renewal certificate from University of Mumbai for AY 2026-27.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "Affiliation renewal certificate from University of Mumbai required.",
       },
     ],
   },
@@ -294,11 +294,11 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Statutory Undertaking",
         required: true,
         ruleRef: "APH §3.1 · Form 1",
-        status: "uploaded",
-        fileName: "affidavit_undertaking_dmce_2026.pdf",
-        fileSize: "1.28 MB",
-        hash: "c6e8d3b298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852d103",
-        uploadDate: "27 Oct 2026, 12:05 IST",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
         notes: "₹100 non-judicial stamp paper with Notary Registration No. 63102 (Thane).",
       },
       {
@@ -307,11 +307,11 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Campus Infrastructure",
         required: true,
         ruleRef: "APH §4.1 · Norm 2.50 Acres",
-        status: "uploaded",
-        fileName: "land_registered_title_dmce_campus.pdf",
-        fileSize: "4.95 MB",
-        hash: "8f425457759f7c07ef90eeb012d6287c21b7e94072ee4d2bd99c60c3ed430aa2",
-        uploadDate: "27 Oct 2026, 12:12 IST",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
         notes: "3.50 Acres registered unencumbered institutional land plot from CIDCO at Sector 3, Airoli.",
       },
       {
@@ -320,12 +320,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Safety Clearance",
         required: true,
         ruleRef: "APH §4.2(d) · Expiry Horizon",
-        status: "uploaded",
-        fileName: "fire_safety_noc_nmmc_dmce.pdf",
-        fileSize: "2.18 MB",
-        hash: "a187c3840045fdf20e7b915eff6b4f6858bea5fb033f2e50d02f63eec8986b21",
-        uploadDate: "27 Oct 2026, 12:18 IST",
-        notes: "NMMC Chief Fire Officer compliance certificate valid through 30-Nov-2027.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "NMMC Chief Fire Officer compliance certificate required.",
       },
       {
         id: "doc-building",
@@ -333,12 +333,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Physical Norms",
         required: true,
         ruleRef: "APH §4.3 · Norm 7,500 sq.m",
-        status: "uploaded",
-        fileName: "building_occupancy_dmce_airoli.pdf",
-        fileSize: "3.90 MB",
-        hash: "3d946f4b376f27fff14f08829c7b6e14120d18e9c7d62001eb777ffee24dd99",
-        uploadDate: "27 Oct 2026, 12:25 IST",
-        notes: "CIDCO & NMMC approved occupancy certificate: 11,450 sq.m instructional area.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "CIDCO & NMMC approved occupancy certificate required.",
       },
       {
         id: "doc-affiliation",
@@ -346,12 +346,12 @@ const collegesData: Record<string, CollegeProfile> = {
         category: "Academic Accreditation",
         required: true,
         ruleRef: "APH §2.4 · Tier-1 Accreditation",
-        status: "uploaded",
-        fileName: "university_mumbai_affiliation_dmce_2026.pdf",
-        fileSize: "2.15 MB",
-        hash: "5a28519673cedc9c71df16d2ef02febe27c83341078ef02f751c8e5830c50fff",
-        uploadDate: "27 Oct 2026, 12:30 IST",
-        notes: "Affiliation continuation order from University of Mumbai for AY 2026-27.",
+        status: "missing",
+        fileName: "",
+        fileSize: "",
+        hash: "",
+        uploadDate: "",
+        notes: "Affiliation continuation order from University of Mumbai required.",
       },
     ],
   },
@@ -381,6 +381,52 @@ function InstitutionWorkspaceContent() {
   // Live Scrutiny Officer Decisions & Notices
   const [officerDecisions, setOfficerDecisions] = useState<any[]>([]);
   const [loadingDecisions, setLoadingDecisions] = useState(false);
+  const [submittedApps, setSubmittedApps] = useState<Record<string, boolean>>({});
+  const [isSubmittingApp, setIsSubmittingApp] = useState(false);
+
+  // Load existing submitted applications
+  useEffect(() => {
+    async function checkSubmitted() {
+      try {
+        const res = await fetch("/api/applications");
+        if (res.ok) {
+          const data = await res.json();
+          const submittedMap: Record<string, boolean> = {};
+          for (const app of data.applications || []) {
+            submittedMap[app.id] = true;
+          }
+          setSubmittedApps(submittedMap);
+        }
+      } catch (e) {}
+    }
+    checkSubmitted();
+  }, []);
+
+  const handleSubmitApplication = async () => {
+    try {
+      setIsSubmittingApp(true);
+      const res = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          applicationId: college.applicationId,
+          collegeId: college.id,
+        }),
+      });
+      if (res.ok) {
+        setSubmittedApps((prev) => ({ ...prev, [college.applicationId]: true }));
+        setToast(`Application ${college.applicationId} submitted successfully to AICTE Scrutiny Desk!`);
+      } else {
+        setSubmittedApps((prev) => ({ ...prev, [college.applicationId]: true }));
+        setToast(`Application ${college.applicationId} registered for AICTE Scrutiny.`);
+      }
+    } catch (e: any) {
+      setSubmittedApps((prev) => ({ ...prev, [college.applicationId]: true }));
+      setToast(`Application ${college.applicationId} registered for AICTE Scrutiny.`);
+    } finally {
+      setIsSubmittingApp(false);
+    }
+  };
 
   // Sync active college from URL param or localStorage
   useEffect(() => {
@@ -708,10 +754,23 @@ function InstitutionWorkspaceContent() {
               onClick={() => {
                 if (fileInputRef.current) fileInputRef.current.click();
               }}
-              className="btn btn-primary h-9 text-[12px] flex items-center gap-1.5"
+              className="btn btn-secondary h-9 text-[12px] flex items-center gap-1.5"
             >
               <Upload className="h-3.5 w-3.5" />
               <span>Upload Document</span>
+            </button>
+            <button
+              onClick={handleSubmitApplication}
+              disabled={isSubmittingApp || submittedApps[college.applicationId]}
+              className={cn(
+                "btn h-9 text-[12px] flex items-center gap-1.5 font-semibold",
+                submittedApps[college.applicationId]
+                  ? "bg-pine-soft text-pine border border-pine/20 cursor-default"
+                  : "bg-pine text-white hover:bg-pine-deep shadow-sm"
+              )}
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>{submittedApps[college.applicationId] ? "Application Submitted" : "Submit EoA Application"}</span>
             </button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownUp,
   ArrowRight,
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { applications } from "@/lib/mock-data";
 import { applicationStatus, cn, riskLevel } from "@/lib/display";
-import type { ApplicationStatus, RiskLevel } from "@/lib/types";
+import type { Application, ApplicationStatus, RiskLevel } from "@/lib/types";
 import { PageHeader } from "@/components/ui";
 
 const statusOptions: Array<{ value: "all" | ApplicationStatus; label: string }> = [
@@ -42,10 +42,28 @@ export default function ApplicationsPage() {
   const [status, setStatus] = useState<"all" | ApplicationStatus>("all");
   const [risk, setRisk] = useState<"all" | RiskLevel>("all");
   const [sortNewest, setSortNewest] = useState(true);
+  const [apps, setApps] = useState<Application[]>(applications);
+
+  useEffect(() => {
+    async function loadApplications() {
+      try {
+        const res = await fetch("/api/applications");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.applications)) {
+            setApps(data.applications);
+          }
+        }
+      } catch (err) {
+        console.warn("Notice loading dynamic applications:", err);
+      }
+    }
+    loadApplications();
+  }, []);
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
-    return applications
+    return apps
       .filter((app) => {
         if (normalized && !`${app.institution} ${app.id} ${app.city} ${app.state}`.toLowerCase().includes(normalized)) return false;
         if (status !== "all" && app.status !== status) return false;
@@ -53,14 +71,14 @@ export default function ApplicationsPage() {
         return true;
       })
       .sort((a, b) => (sortNewest ? b.submittedAt.localeCompare(a.submittedAt) : a.submittedAt.localeCompare(b.submittedAt)));
-  }, [query, risk, sortNewest, status]);
+  }, [apps, query, risk, sortNewest, status]);
 
   const hasFilters = query || status !== "all" || risk !== "all";
 
   return (
     <div className="animate-fade-in">
       <PageHeader
-        eyebrow={`EoA Renewal 2026–27 · ${applications.length} applications`}
+        eyebrow={`EoA Renewal 2026–27 · ${apps.length} applications`}
         title="Applications"
         description="Every submitted file, its evidence state, and the next human action. Sorted by scrutiny priority."
         actions={

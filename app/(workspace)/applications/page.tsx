@@ -13,6 +13,7 @@ import {
   Inbox,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import { applicationStatus, cn, riskLevel } from "@/lib/display";
@@ -72,6 +73,25 @@ export default function ApplicationsPage() {
       .sort((a, b) => (sortNewest ? b.submittedAt.localeCompare(a.submittedAt) : a.submittedAt.localeCompare(b.submittedAt)));
   }, [apps, query, risk, sortNewest, status]);
 
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetAll = async () => {
+    if (!window.confirm("Purge all test applications and documents from the database for a clean start?")) {
+      return;
+    }
+    setIsResetting(true);
+    try {
+      const res = await fetch("/api/applications", { method: "DELETE" });
+      if (res.ok) {
+        setApps([]);
+      }
+    } catch (e) {
+      console.error("Purge error:", e);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const hasFilters = query || status !== "all" || risk !== "all";
 
   return (
@@ -82,6 +102,15 @@ export default function ApplicationsPage() {
         description="Every submitted file, its evidence state, and the next human action. Sorted by scrutiny priority."
         actions={
           <>
+            <button
+              onClick={handleResetAll}
+              disabled={isResetting || apps.length === 0}
+              className="btn btn-secondary text-rust hover:border-rust/40 hover:bg-rust-soft/30 text-[12px] disabled:opacity-50"
+              title="Purge all uploaded test applications for a fresh demo run"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {isResetting ? "Purging…" : "Clean Slate (Reset Demo)"}
+            </button>
             <button className="btn btn-secondary">
               <Download className="h-3.5 w-3.5" />
               Export CSV

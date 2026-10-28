@@ -189,3 +189,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+  try {
+    const supabase = getServerSupabase();
+    // Delete in child-to-parent order to satisfy foreign keys
+    await supabase.from("anomaly_flags").delete().neq("application_id", "none");
+    await supabase.from("documents").delete().neq("application_id", "none");
+    await supabase.from("decisions").delete().neq("application_id", "none");
+    await supabase.from("applications").delete().neq("id", "none");
+    return NextResponse.json({ success: true, message: "All test applications, documents, and anomalies purged for clean testing." });
+  } catch (err: any) {
+    console.error("DELETE /api/applications error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

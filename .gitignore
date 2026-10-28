@@ -48,3 +48,8 @@ next-env.d.ts
 
 # ocr data cache
 *.traineddata
+
+# scratch
+scratch/
+temp_video/
+temp_record/

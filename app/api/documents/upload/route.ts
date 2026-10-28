@@ -117,8 +117,14 @@ export async function POST(request: Request) {
         const blob = new Blob([buffer], { type: file.type || "application/pdf" });
         vpsForm.append("file", blob, file.name);
 
+        const headers: Record<string, string> = {};
+        if (process.env.FORENSIC_ENGINE_KEY) {
+          headers["x-api-key"] = process.env.FORENSIC_ENGINE_KEY;
+        }
+
         const vpsRes = await fetch(`${vpsEngineUrl.replace(/\/$/, "")}/analyze`, {
           method: "POST",
+          headers,
           body: vpsForm,
         });
 

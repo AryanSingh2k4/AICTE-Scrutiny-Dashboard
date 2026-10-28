@@ -5,7 +5,8 @@ from datetime import datetime
 from collections import Counter
 from typing import Optional, List, Dict, Any
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Security, Depends
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 import fitz  # PyMuPDF
 import cv2
@@ -22,6 +23,24 @@ app = FastAPI(
     description="Dedicated serverless microservice for Computer Vision ELA & Native Tesseract OCR",
     version="1.0.0"
 )
+
+# Security: Enforce API Key header if ENGINE_API_KEY environment variable is configured
+API_KEY_HEADER = APIKeyHeader(name="x-api-key", auto_error=False)
+
+def verify_api_key(api_key: Optional[str] = Security(API_KEY_HEADER)):
+    expected_key = os.getenv("ENGINE_API_KEY")
+    if expected_key:
+        if not api_key or api_key != expected_key:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid or missing x-api-key header")
+    return api_key
+
+MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB maximum upload limit for DoS protection
+
+async def read_bounded_file(file: UploadFile) -> bytes:
+    content = await file.read(MAX_FILE_SIZE + 1024)
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="Payload Too Large: File exceeds 25MB limit")
+    return content
 
 app.add_middleware(
     CORSMiddleware,
@@ -177,7 +196,7 @@ def health_check():
         }
     }
 
-@app.post("/analyze")
+@app.post("/analyze", dependencies=[Depends(verify_api_key)])
 async def analyze_document(
     file: UploadFile = File(...),
     statedDate: Optional[str] = Form(None)
@@ -188,7 +207,7 @@ async def analyze_document(
     Executes PyMuPDF inspection, OpenCV Error Level Analysis (ELA),
     and Native Tesseract OCR.
     """
-    contents = await file.read()
+    contents = await read_bounded_file(file)
     filename = file.filename or "uploaded_file"
     file_ext = os.path.splitext(filename)[1].lower()
 
@@ -216,6 +235,7 @@ async def analyze_document(
         tmp.write(contents)
         tmp_path = tmp.name
 
+    doc = None
     try:
         # Case 2: PDF Document
         if file_ext == ".pdf" or contents[:4] == b"%PDF":
@@ -345,17 +365,26 @@ async def analyze_document(
             }
 
     finally:
+        if doc is not None:
+            try:
+                doc.close()
+            except Exception:
+                pass
         if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
-@app.post("/ocr")
+@app.post("/ocr", dependencies=[Depends(verify_api_key)])
 async def extract_ocr_only(file: UploadFile = File(...)):
     """Dedicated Tesseract OCR endpoint for any raw image or PDF page."""
-    contents = await file.read()
+    contents = await read_bounded_file(file)
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(contents)
         tmp_path = tmp.name
 
+    doc = None
     try:
         pil_img = Image.open(tmp_path)
         return run_tesseract_ocr(pil_img)
@@ -366,5 +395,13 @@ async def extract_ocr_only(file: UploadFile = File(...)):
         pil_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         return run_tesseract_ocr(pil_img)
     finally:
+        if doc is not None:
+            try:
+                doc.close()
+            except Exception:
+                pass
         if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass

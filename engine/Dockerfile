@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Security: Create unprivileged system user
+RUN useradd -m -u 1000 appuser
+
 WORKDIR /app
 
 # Install Python dependencies
@@ -21,8 +24,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code
+# Copy application source code and grant ownership
 COPY . .
+RUN chown -R appuser:appuser /app
+
+# Drop root privileges
+USER appuser
 
 EXPOSE 8000
 

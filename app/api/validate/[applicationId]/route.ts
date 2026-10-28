@@ -177,9 +177,7 @@ export async function POST(
 
       // (c) Municipal Fire & Life Safety Services NOC
       if (doc.document_type === "fire_safety") {
-        // Intermittent / Flaky simulation: APP-2026-9012 fire service times out
         const isTimeout =
-          applicationId === "APP-2026-9012" ||
           doc.file_name?.includes("FAIL") ||
           doc.metadata?.force_fail === true;
 

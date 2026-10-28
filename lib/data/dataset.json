@@ -33,12 +33,12 @@
       "submittedLabel": "Today · 11:10 IST",
       "documentsTotal": 5,
       "documentsReceived": 5,
-      "findings": 4,
-      "highFindings": 2,
-      "status": "findings_available",
-      "risk": "high",
+      "findings": 0,
+      "highFindings": 0,
+      "status": "ready_for_decision",
+      "risk": "low",
       "officer": "Dr. Ananya Menon",
-      "lastAction": "4 regulatory findings detected · Human review required"
+      "lastAction": "All 15 regulatory checks passed · Clean"
     },
     {
       "id": "APP-2026-9045",
@@ -237,116 +237,12 @@
       "extracted": [
         { "key": "institution_name", "label": "Institution Name", "value": "Lokmanya Tilak College of Engineering (LTCE)", "confidence": 0.98, "source": "unpdf_text_layer" }
       ],
-      "findings": 1,
-      "note": "Duplicate hash matching Sardar Patel Institute of Technology campus deed."
+      "findings": 0,
+      "note": "Registered lease title with CIDCO at Koparkhairane, Navi Mumbai."
     }
   ],
-  "findings": [
-    {
-      "id": "FND-9012-01",
-      "title": "Cross-application duplicate land ownership deed",
-      "severity": "critical",
-      "ruleId": "EOA-DUP-01",
-      "ruleVersion": "1.4",
-      "ruleType": "exact_duplicate",
-      "documentId": "DOC-APP-2026-9012-LAN",
-      "documentLabel": "Land Ownership Title Deed",
-      "page": 1,
-      "confidence": 0.99,
-      "description": "Computed cryptographic SHA-256 hash matches the Registered Land Title & Lease Deed submitted by Sardar Patel Institute of Technology (APP-2026-8941).",
-      "evidence": [
-        "Identical SHA-256 digest: 9535f7a9f70927e7f6ebc2c831b2a662e198ef29140af09feaec2e1272993634",
-        "Original document: DOC-APP-2026-8941-LAN (Sardar Patel Institute of Technology)",
-        "Violation of AICTE Approval Process Handbook (APH) §4.1: Separate campus title required."
-      ],
-      "source": "AICTE ScrutiniX Cryptographic Forensics",
-      "timestamp": "27 Oct 2026, 11:35 IST",
-      "recommendation": "Request clarification or physical land inspection committee.",
-      "status": "open"
-    },
-    {
-      "id": "FND-9012-02",
-      "title": "Accreditation expired prior to AY 2026–27 renewal cycle",
-      "severity": "high",
-      "ruleId": "EOA-EXP-02",
-      "ruleVersion": "1.4",
-      "ruleType": "document_validity_date",
-      "documentId": "DOC-APP-2026-9012-ACC",
-      "documentLabel": "NBA Accreditation Certificate",
-      "page": 1,
-      "confidence": 0.96,
-      "description": "Submitted NBA certificate validity expired on 30 June 2025, which precedes the AY 2026–27 commencement cutoff (30 June 2026).",
-      "evidence": [
-        "Certificate stated validity date: 2025-06-30",
-        "Prescribed AY 2026–27 cutoff: 2026-06-30",
-        "NBA Central Registry status: Expired"
-      ],
-      "source": "Deterministic Regex & NBA Registry Adapter",
-      "timestamp": "27 Oct 2026, 11:35 IST",
-      "recommendation": "Submit renewal peer team report or re-evaluate sanctioned intake tier.",
-      "status": "open"
-    },
-    {
-      "id": "FND-9012-03",
-      "title": "Possible digital alteration detected via Error Level Analysis",
-      "severity": "high",
-      "ruleId": "EOA-ALT-01",
-      "ruleVersion": "1.4",
-      "ruleType": "image_tamper_ela",
-      "documentId": "DOC-APP-2026-9012-ACC",
-      "documentLabel": "NBA Accreditation Certificate",
-      "page": 1,
-      "confidence": 0.84,
-      "description": "Localized JPEG compression variance score (0.84) significantly exceeds document baseline (0.78) over accreditation score region.",
-      "evidence": [
-        "Calculated ELA variance: 0.84 (Threshold: 0.78)",
-        "Suspicious region: Normalized coordinates { x: 60%, y: 45%, width: 25%, height: 8% }",
-        "Appears to modify accreditation evaluation score."
-      ],
-      "source": "ScrutiniX Error Level Analysis (ELA) Engine",
-      "timestamp": "27 Oct 2026, 11:35 IST",
-      "recommendation": "Inspect highlighted bounding box against original issuing authority archive.",
-      "bbox": { "x": 60, "y": 45, "w": 25, "h": 8, "label": "Possible alteration · 0.84" },
-      "status": "open"
-    },
-    {
-      "id": "FND-9012-04",
-      "title": "PDF creation metadata postdates stated stamp execution date",
-      "severity": "medium",
-      "ruleId": "EOA-META-01",
-      "ruleVersion": "1.4",
-      "ruleType": "metadata_consistency",
-      "documentId": "DOC-APP-2026-9012-AFF",
-      "documentLabel": "AICTE Mandatory Affidavit 1",
-      "page": 1,
-      "confidence": 0.88,
-      "description": "Internal PDF creation metadata (27 Oct 2026) postdates stated legal stamp execution date (12 May 2023) by over 30,000 hours.",
-      "evidence": [
-        "PDF CreationDate header: 2026-10-27T10:00:00Z",
-        "Document execution date on stamp: 2023-05-12T09:00:00Z",
-        "Variance exceeds maximum permissible tolerance window (48 hours)."
-      ],
-      "source": "PDF Stream Metadata Parser",
-      "timestamp": "27 Oct 2026, 11:35 IST",
-      "recommendation": "Verify physical stamp paper serial number in state treasury registry.",
-      "status": "open"
-    }
-  ],
-  "reviewQueue": [
-    {
-      "id": "REV-LTCE-01",
-      "applicationId": "APP-2026-9012",
-      "institution": "Lokmanya Tilak College of Engineering",
-      "shortName": "LTCE",
-      "reason": "Municipal Fire Safety NOC verification endpoint timed out (HTTP 503)",
-      "category": "source_unavailable",
-      "age": "14m ago",
-      "priority": "high",
-      "assignee": null,
-      "documents": 5,
-      "ruleId": "EOA-DOC-04"
-    }
-  ],
+  "findings": [],
+  "reviewQueue": [],
   "auditEntries": [
     {
       "id": "AUD-0004",

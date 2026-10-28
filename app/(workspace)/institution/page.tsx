@@ -447,22 +447,6 @@ function InstitutionWorkspaceContent() {
 
   // Cross-institutional duplicate verification
   const checkDuplicateCrossInstitution = async (computedHash: string) => {
-    const spitLandDeedHashes = [
-      "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc",
-      "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4",
-      "9535f7a9f70927e7f6ebc2c831b2a662e198ef29140af09feaec2e1272993634",
-    ];
-
-    if (spitLandDeedHashes.includes(computedHash.toLowerCase())) {
-      return {
-        isDuplicate: true,
-        matchedDoc: "Land Lease Deed",
-        matchedInstitution: "Sardar Patel Institute of Technology",
-        message:
-          "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
-      };
-    }
-
     for (const [key, otherCollege] of Object.entries(collegesData)) {
       if (key === collegeId) continue;
       const match = otherCollege.initialDocs.find(
@@ -473,11 +457,7 @@ function InstitutionWorkspaceContent() {
           isDuplicate: true,
           matchedDoc: match.type,
           matchedInstitution: otherCollege.name,
-          message:
-            otherCollege.id === "sardarpatel" &&
-            (match.id === "doc-land" || match.type.includes("Land"))
-              ? "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology."
-              : `Duplicate Document Detected: Identical cryptographic hash matches ${match.type} submitted by ${otherCollege.name}.`,
+          message: `Duplicate Document Detected: Identical cryptographic hash matches ${match.type} submitted by ${otherCollege.name}.`,
         };
       }
     }
@@ -486,17 +466,21 @@ function InstitutionWorkspaceContent() {
       const supabase = createClient();
       const { data: dbMatches } = await supabase
         .from("documents")
-        .select("document_type, application_id")
+        .select("document_type, application_id, applications(institutions(name))")
         .eq("sha256_hash", computedHash)
         .neq("application_id", college.applicationId);
 
       if (dbMatches && dbMatches.length > 0) {
+        const match = dbMatches[0];
+        const matchApp = match.applications as any;
+        const matchedInst = Array.isArray(matchApp?.institutions)
+          ? matchApp.institutions[0]?.name
+          : matchApp?.institutions?.name || "another registered institution";
         return {
           isDuplicate: true,
-          matchedDoc: dbMatches[0].document_type || "Land Lease Deed",
-          matchedInstitution: "Sardar Patel Institute of Technology",
-          message:
-            "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
+          matchedDoc: match.document_type || "Compliance Document",
+          matchedInstitution: matchedInst,
+          message: `Duplicate Document Detected: Identical cryptographic hash matches ${match.document_type || "document"} submitted by ${matchedInst}.`,
         };
       }
     } catch (e) {
@@ -504,48 +488,6 @@ function InstitutionWorkspaceContent() {
     }
 
     return { isDuplicate: false, message: "" };
-  };
-
-  const testDuplicateUpload = async () => {
-    const testHash = "5d4b85c15e8df1fd657cfba39aa723e7f6071ef694ba328c68c222ffda8daffc";
-    setIsProcessing(true);
-    setProcessingStage("Computing SHA-256 cryptographic digest via browser Web Crypto…");
-    await new Promise((r) => setTimeout(r, 350));
-    setProcessingStage("Cross-checking hash against Sardar Patel Institute of Technology records…");
-    await new Promise((r) => setTimeout(r, 400));
-
-    const dupCheck = await checkDuplicateCrossInstitution(testHash);
-    if (dupCheck.isDuplicate) {
-      setDuplicateBanner({
-        show: true,
-        hash: testHash,
-        matchedInstitution: dupCheck.matchedInstitution || "Sardar Patel Institute of Technology",
-        matchedDoc: dupCheck.matchedDoc || "Land Lease Deed",
-        message:
-          "Duplicate Document Detected: Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
-      });
-
-      setChecklist((prev) =>
-        prev.map((doc) => {
-          if (doc.id === "doc-land" || doc.id === selectedCategory) {
-            return {
-              ...doc,
-              status: "attention",
-              fileName: "spit_land_lease_deed_duplicate_test.pdf",
-              fileSize: "4.82 MB",
-              hash: testHash,
-              uploadDate: new Date().toLocaleTimeString("en-IN") + " IST",
-              notes:
-                "CRITICAL ADVISORY: Duplicate document detected. Identical cryptographic hash matches Land Lease Deed submitted by Sardar Patel Institute of Technology.",
-              isCustom: true,
-            };
-          }
-          return doc;
-        })
-      );
-    }
-    setIsProcessing(false);
-    setToast("Duplicate document analysis complete. High-priority collision banner raised.");
   };
 
   // Handle actual file upload from user's filesystem and process via backend forensic engine
@@ -914,18 +856,6 @@ function InstitutionWorkspaceContent() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      testDuplicateUpload();
-                    }}
-                    className="btn btn-secondary h-8 px-2.5 text-[11px] font-semibold border-rust/30 bg-rust-soft/50 text-rust hover:bg-rust-soft flex items-center gap-1.5"
-                    title="Test duplicate detection with SPIT Land Deed"
-                  >
-                    <ShieldAlert className="h-3.5 w-3.5 text-rust" />
-                    <span>Test SPIT Land Deed Duplicate</span>
-                  </button>
                   <span className="text-[11px] text-muted font-medium">Target Category:</span>
                   <select
                     value={selectedCategory}
@@ -1435,61 +1365,36 @@ function InstitutionWorkspaceContent() {
               <span
                 className={cn(
                   "chip text-[11px] font-semibold border",
-                  college.id === "ltce"
-                    ? "border-pine/30 bg-pine-soft text-pine"
-                    : "border-ochre/30 bg-ochre-soft text-ochre"
+                  duplicateBanner
+                    ? "border-rust/30 bg-rust-soft text-rust"
+                    : "border-pine/30 bg-pine-soft text-pine"
                 )}
               >
-                {college.id === "sardarpatel" ? "1 Advisory Discrepancy" : "All Pre-Checks Clear"}
+                {duplicateBanner ? "Discrepancy Detected" : "All Pre-Checks Clear"}
               </span>
             </div>
 
             <div className="space-y-4">
-              {/* Finding 1: Fire NOC Horizon (for Sardar Patel) or Clear (for LTCE & DMCE) */}
-              {college.id === "sardarpatel" ? (
-                <div className="rounded-xl border border-ochre/30 bg-ochre-soft/20 p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-ochre/20 pb-3">
+              {duplicateBanner ? (
+                <div className="rounded-xl border border-rust/30 bg-rust-soft/20 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-rust/20 pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ochre text-white">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rust text-white">
                         <AlertTriangle className="h-3.5 w-3.5" />
                       </span>
-                      <span className="mono text-[12px] font-bold text-ink">RULE FIRE-EXP-01</span>
-                      <span className="rounded bg-ochre-soft px-1.5 py-0.5 text-[10px] font-semibold text-ochre border border-ochre/30">
-                        Advisory Horizon
+                      <span className="mono text-[12px] font-bold text-ink">SCANNER DETECTED ANOMALY</span>
+                      <span className="rounded bg-rust-soft px-1.5 py-0.5 text-[10px] font-semibold text-rust border border-rust/30">
+                        High Priority
                       </span>
                     </div>
-                    <span className="text-[11.5px] text-muted">Rule Severity: <strong className="text-ochre">Medium</strong></span>
+                    <span className="text-[11.5px] text-muted">Verification Engine: <strong className="text-rust">Active Flag</strong></span>
                   </div>
                   <div className="mt-3 text-[13px] font-semibold text-ink">
-                    Fire & Life Safety NOC Expiry (15-Mar-2027) precedes Academic Year Completion (30-Jun-2027)
+                    {duplicateBanner.message}
                   </div>
                   <p className="mt-1 text-[12px] leading-relaxed text-muted">
-                    Under AICTE Approval Process Handbook (APH) Chapter IV, §4.2(d), all statutory clearances must maintain
-                    validity throughout the entire academic year. The uploaded certificate from Maharashtra Fire Services
-                    expires on 15 March 2027.
+                    The document scanning pipeline detected cryptographic or structural collision with records belonging to {duplicateBanner.matchedInstitution}.
                   </p>
-                  <div className="mt-3 rounded-lg border border-line bg-surface p-3 text-[12px]">
-                    <div className="font-semibold text-ink">Recommended Institution Action:</div>
-                    <div className="mt-0.5 text-muted">
-                      Upload either (A) a renewal acknowledgment receipt from the Chief Fire Officer, or (B) a statutory
-                      undertaking on ₹100 stamp paper committing to submit the renewed NOC prior to 15-Mar-2027.
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedCategory("doc-fire");
-                        setTab("submission");
-                        setTimeout(() => {
-                          if (fileInputRef.current) fileInputRef.current.click();
-                        }, 100);
-                      }}
-                      className="btn btn-primary h-8 text-[11.5px] flex items-center gap-1.5"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      <span>Upload Clarification / Undertaking</span>
-                    </button>
-                  </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-pine/30 bg-pine-soft/20 p-4">
@@ -1498,7 +1403,7 @@ function InstitutionWorkspaceContent() {
                       <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pine text-white">
                         <Check className="h-3 w-3" />
                       </span>
-                      <span className="mono text-[12px] font-bold text-ink">RULE FIRE-EXP-01</span>
+                      <span className="mono text-[12px] font-bold text-ink">REGULATORY PRE-CHECKS</span>
                       <span className="rounded bg-pine-soft px-1.5 py-0.5 text-[10px] font-semibold text-pine border border-pine/30">
                         Compliant
                       </span>
@@ -1506,10 +1411,10 @@ function InstitutionWorkspaceContent() {
                     <span className="mono text-[11px] text-pine font-medium">Clear</span>
                   </div>
                   <div className="mt-2 text-[12.5px] text-ink font-semibold">
-                    Fire & Life Safety NOC valid through 31-Aug-2027 (Satisfies full AY 2026–27 requirement).
+                    All statutory pre-checks, land deeds, and municipal NOCs meet baseline AICTE criteria.
                   </div>
-                  <p className="mt-0.5 text-[11.5px] text-muted">
-                    Navi Mumbai Municipal Corporation (NMMC) Fire Services approval certificate verified.
+                  <p className="mt-1 text-[11.5px] text-muted">
+                    All statutory pre-checks and municipal NOCs meet baseline AICTE criteria. Any newly uploaded document will be independently evaluated by the forensic engine.
                   </p>
                 </div>
               )}
